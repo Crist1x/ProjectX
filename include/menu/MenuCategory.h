@@ -1,0 +1,8 @@
+//
+// Created by CRIST1X on 31.01.2026.
+//
+
+#ifndef PROJECTX_MENUCATEGORY_H
+#define PROJECTX_MENUCATEGORY_H
+
+#endif //PROJECTX_MENUCATEGORY_H
