@@ -1,18 +1,11 @@
-cmake_minimum_required(VERSION 4.0)
-project(ProjectX)
+cmake_minimum_required(VERSION 3.16)
+project(project)
 
-set(CMAKE_CXX_STANDARD 20)
+include(cmake/include.cmake)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/libs)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKEW_CXX_STANDARD_REQUIRED ON)
 
-add_executable(ProjectX main.cpp
-        src/menu/Menu.cpp
-        include/menu/Menu.h
-        include/menu/Menu.h
-        include/menu/Menu.h
-        src/menu/Menu.cpp
-        include/menu/MenuCategory.h
-        include/menu/MenuItem.h
-        src/menu/MenuCategory.cpp
-        src/menu/MenuItem.cpp)
+add_subdirectory(app)
+add_subdirectory(src)
+add_subdirectory(tests)
