@@ -1,17 +1,13 @@
-//
-// Created by CRIST1X on 31.01.2026.
-//
-
 #ifndef PROJECTX_MENUITEM_H
 #define PROJECTX_MENUITEM_H
 
 #include <string>
 #include <map>
-#include "../../libs/json.hpp"
+#include "../../cmake/json.hpp"
 
 using json = nlohmann::json;
 
-class MenuItem{
+class Item{
 private:
     int id{};
     std::string name;
@@ -22,8 +18,7 @@ private:
     std::map<std::string, std::string> attributes;
 
 public:
-    MenuItem(int id, std::string  name, std::string  description,
-             double price, int prep_time, bool available = true);
+    Item(int id, std::string name, std::string description, double price, int prep_time, bool available = true);
 
     // Геттеры
     int get_id() const;
@@ -42,4 +37,4 @@ public:
 
 };
 
-#endif //PROJECTX_MENUITEM_H
+#endif
