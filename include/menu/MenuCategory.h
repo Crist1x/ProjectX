@@ -1,5 +1,5 @@
-#ifndef PROJECTX_MENUCATEGORY_H
-#define PROJECTX_MENUCATEGORY_H
+#ifndef PROJECTX_Category_H
+#define PROJECTX_Category_H
 
 #include "MenuItem.h"
 #include <vector>
