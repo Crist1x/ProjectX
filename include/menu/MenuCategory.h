@@ -3,57 +3,51 @@
 
 #include "MenuItem.h"
 #include <vector>
-#include <memory>
-#include <algorithm>
+#include <string>
+#include "../../cmake/json.hpp"
+
+using json = nlohmann::json;
 
 class Category {
 private:
-    int id;
+    int id{};
     std::string name;
     std::string description;
-    std::vector<std::shared_ptr<Item>> products;
-    std::map<std::string, std::string> attributes;
+    int cafe_id{};
+    std::vector<Item> items;
 
 public:
-    Category();
-    Category(int id, const std::string& name, const std::string& description = "");
+    Category() = default;
+    Category(int id, const std::string& name, const std::string& description, int cafe_id);
 
     // Геттеры
-    int getId() const;
-    const std::string& getName() const;
-    const std::string& getDescription() const;
-    const std::vector<std::shared_ptr<Item>>& getProducts() const;
-    size_t getProductCount() const;
+    int get_id() const;
+    const std::string& get_name() const;
+    const std::string& get_description() const;
+    int get_cafe_id() const;
+    const std::vector<Item>& get_items() const;
 
-    // Работа с продуктами
-    bool addProduct(std::shared_ptr<Item> Item);
-    bool removeProduct(int product_id);
-    std::shared_ptr<Item> getProduct(int product_id) const;
-    std::shared_ptr<Item> getProductByName(const std::string& name) const;
+    // Сеттеры
+    void set_name(const std::string& new_name);
+    void set_description(const std::string& new_description);
 
-    // Поиск продуктов
-    std::vector<std::shared_ptr<Item>> searchProducts(
-            const std::string& query) const; // РЕЛИЗНУТЬ
-    std::vector<std::shared_ptr<Item>> getAvailableProducts() const;
+    // Добавление/удаление и всякое такое
+    void add_item(const Item& item);
+    void remove_item(int item_id);
+    Item* find_item(int item_id);
+    const Item* find_item(int item_id) const;
 
-    // Работа с атрибутами
-    void setAttribute(const std::string& key, const std::string& value);
-    std::string getAttribute(const std::string& key) const;
+    // Чуть чуть информации
+    size_t get_items_count() const;
+    double get_min_price() const;
+    double get_max_price() const;
+    int get_max_preparation_time() const;
 
-    // Утилиты
-    void print() const;
-    bool isEmpty() const;
+    // JSON и валидация
+    json toJson() const;
+    static Category fromJson(const json& j);
 
-    // Статистика
-    struct Statistics {
-        size_t total_products;
-        size_t available_products;
-        double min_price;
-        double max_price;
-        double average_price;
-    };
-
-    Statistics getStatistics() const;
+    bool isValid() const;
 };
 
-#endif // CATEGORY_HPP
+#endif
