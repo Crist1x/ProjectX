@@ -1,26 +1,32 @@
-#include "spdlog/spdlog.h"
+#include "menu/MenuItem.h"
+#include "menu/MenuCategory.h"
+#include "menu/Menu.h"
 #include <iostream>
+#include <memory>
 
-int main()
-{
-    spdlog::info("Welcome to spdlog!");
-    spdlog::error("Some error message with arg: {}", 1);
+int main() {
+    Menu cafe_menu(1, "Булочная");
 
-    spdlog::warn("Easy padding in numbers like {:08d}", 12);
-    spdlog::critical("Support for int: {0:d};  hex: {0:x};  oct: {0:o}; bin: {0:b}", 42);
-    spdlog::info("Support for floats {:03.2f}", 1.23456);
-    spdlog::info("Positional args are {1} {0}..", "too", "supported");
-    spdlog::info("{:<30}", "left aligned");
+    Category drinks(1, "Напитки", "Горячие и холодные напитки", 1);
 
-    spdlog::set_level(spdlog::level::debug); // Set *global* log level to debug
-    spdlog::debug("This message should be displayed..");
+    drinks.add_item(Item(1, "Кофе Латте", "Молочный кофе", 150.0, 5, 1, true));
+    drinks.add_item(Item(2, "Чай Зелёный", "Китайский чай", 100.0, 3, 1, true));
 
-    // change log pattern
-    spdlog::set_pattern("[%H:%M:%S %z] [%n] [%^---%L---%$] [thread %t] %v");
+    // Категория "Выпечка"
+    Category bakery(2, "Выпечка", "Свежая выпечка", 1);
+    bakery.add_item(Item(3, "Круассан", "С маслом", 200.0, 10, 1, true));
+    bakery.add_item(Item(4, "Пончик", "С шоколадом", 150.0, 5, 1, true));
 
-    // Compile time log levels
-    // Note that this does not change the current log level, it will only
-    // remove (depending on SPDLOG_ACTIVE_LEVEL) the call on the release code.
-    SPDLOG_TRACE("Some trace message with param {}", 42);
-    SPDLOG_DEBUG("Some debug message");
+    cafe_menu.add_category(drinks);
+    cafe_menu.add_category(bakery);
+
+    std::cout << cafe_menu.to_telegram_format() << std::endl;
+
+    const Item* item = cafe_menu.find_item(3);
+    if (item) {
+        std::cout << "Нашли: " << item->get_name()
+                  << " за " << item->get_price() << "₽" << std::endl;
+    }
+
+    return 0;
 }
