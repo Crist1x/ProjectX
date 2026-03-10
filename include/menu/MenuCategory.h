@@ -37,7 +37,7 @@ public:
     Item* find_item(int item_id);
     const Item* find_item(int item_id) const;
 
-    // Чуть чуть информации
+    // Чуть-чуть информации
     size_t get_items_count() const;
     double get_min_price() const;
     double get_max_price() const;

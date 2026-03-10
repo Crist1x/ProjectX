@@ -1,7 +1,6 @@
-#include "Category.h"
+#include "menu/MenuCategory.h"
 #include <algorithm>
 #include <stdexcept>
-#include <limits>
 
 Category::Category(int id, const std::string& name, 
                            const std::string& description, int cafe_id)

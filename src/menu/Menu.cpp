@@ -1,5 +1,4 @@
-#include "Menu.h"
-#include "../logger/logger.h"
+#include "menu/Menu.h"
 //TODO: потом добавиьт сюда инклюд класса дб и дописать пару функций
 #include <sstream>
 #include <algorithm>
@@ -179,3 +178,7 @@ double Menu::get_total_price_range_max() const {
 bool Menu::isValid() const {
     return cafe_id > 0 && !cafe_name.empty() && !categories.empty();
 }
+
+void Menu::log_info(const std::string& message) const { }
+
+void Menu::log_error(const std::string& message) const { }
