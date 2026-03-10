@@ -13,7 +13,6 @@ target_link_libraries(logger_lib INTERFACE spdlog::spdlog)
 
 add_library(logger ${CMAKE_SOURCE_DIR}/src/logger/logger.cpp
         ../include/logger/logger.h
-        ../include/algorithm/algorithm.h
         algorithm/alg.cpp)
 target_include_directories(logger PUBLIC ${CMAKE_SOURCE_DIR}/include/logger)
 target_link_libraries(logger PUBLIC spdlog::spdlog)

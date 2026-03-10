@@ -1,6 +1,9 @@
 add_executable(bot_app
         main.cpp
+        ../include/algorithm/OrderDistributionAlgorithm.h
 )
+
+target_include_directories(bot_app PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 target_include_directories(bot_app PRIVATE
         ${CMAKE_SOURCE_DIR}/include
