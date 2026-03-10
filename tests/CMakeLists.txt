@@ -1,13 +1,21 @@
 enable_testing()
 
-add_executable(
-        test1
+add_executable(run_tests
         test1.cpp
 )
-target_link_libraries(
-        test1
-        GTest::gtest_main
+
+target_include_directories(run_tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
 )
 
+target_link_libraries(run_tests PRIVATE
+        gtest_main
+        spdlog::spdlog
+        menu_lib
+        db_lib
+        logger_lib
+)
+
+
 include(GoogleTest)
-gtest_discover_tests(test1)
+gtest_discover_tests(run_tests)

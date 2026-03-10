@@ -1,0 +1,8 @@
+//
+// Created by CRIST1X on 10.03.2026.
+//
+
+#ifndef PROJECT_DATABASE_H
+#define PROJECT_DATABASE_H
+
+#endif //PROJECT_DATABASE_H
