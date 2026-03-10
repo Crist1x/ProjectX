@@ -16,7 +16,8 @@ class Menu {
 private:
     int cafe_id{};
     std::string cafe_name;
-    std::vector<Category> categories;
+    // Применили тот же фикс: теперь категории живут в куче, указатели безопасны
+    std::vector<std::shared_ptr<Category>> categories;
     std::weak_ptr<Logger> logger;
     std::weak_ptr<Database> database;
 
@@ -29,7 +30,7 @@ public:
     // Геттеры и сеттеры
     int get_cafe_id() const;
     const std::string& get_cafe_name() const;
-    const std::vector<Category>& get_categories() const;
+    const std::vector<std::shared_ptr<Category>>& get_categories() const;
 
     void set_cafe_name(const std::string& name);
 

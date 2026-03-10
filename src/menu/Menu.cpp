@@ -19,7 +19,7 @@ int Menu::get_cafe_id() const { return cafe_id; }
 
 const std::string& Menu::get_cafe_name() const { return cafe_name; }
 
-const std::vector<Category>& Menu::get_categories() const { return categories; }
+const std::vector<std::shared_ptr<Category>>& Menu::get_categories() const { return categories; }
 
 // Сеттеры
 void Menu::set_cafe_name(const std::string& name) {
@@ -37,14 +37,14 @@ void Menu::add_category(const Category& category) {
     if (category.get_cafe_id() != cafe_id) {
         throw std::invalid_argument("Category cafe_id does not match menu cafe_id");
     }
-    categories.push_back(category);
+    categories.push_back(std::make_shared<Category>(category));
     log_info("Category added: " + category.get_name());
 }
 
 void Menu::remove_category(int category_id) {
     categories.erase(
         std::remove_if(categories.begin(), categories.end(),
-            [category_id](const Category& cat) { return cat.get_id() == category_id; }),
+            [category_id](const std::shared_ptr<Category>& cat) { return cat->get_id() == category_id; }),
         categories.end()
     );
     log_info("Category removed: ID " + std::to_string(category_id));
@@ -52,8 +52,8 @@ void Menu::remove_category(int category_id) {
 
 Category* Menu::find_category(int category_id) {
     for (auto& cat : categories) {
-        if (cat.get_id() == category_id) {
-            return &cat;
+        if (cat->get_id() == category_id) {
+            return cat.get();
         }
     }
     return nullptr;
@@ -61,8 +61,8 @@ Category* Menu::find_category(int category_id) {
 
 const Category* Menu::find_category(int category_id) const {
     for (const auto& cat : categories) {
-        if (cat.get_id() == category_id) {
-            return &cat;
+        if (cat->get_id() == category_id) {
+            return cat.get();
         }
     }
     return nullptr;
@@ -71,7 +71,7 @@ const Category* Menu::find_category(int category_id) const {
 // Поиск блюда
 Item* Menu::find_item(int item_id) {
     for (auto& cat : categories) {
-        Item* item = cat.find_item(item_id);
+        Item* item = cat->find_item(item_id);
         if (item) return item;
     }
     return nullptr;
@@ -79,7 +79,7 @@ Item* Menu::find_item(int item_id) {
 
 const Item* Menu::find_item(int item_id) const {
     for (const auto& cat : categories) {
-        const Item* item = cat.find_item(item_id);
+        const Item* item = cat->find_item(item_id);
         if (item) return item;
     }
     return nullptr;
@@ -102,15 +102,16 @@ std::string Menu::to_telegram_format() const {
     oss << "📋 *Меню: " << cafe_name << "*\n\n";
 
     for (const auto& cat : categories) {
-        oss << "🍽 *" << cat.get_name() << "*\n";
-        oss << "_" << cat.get_description() << "_\n\n";
+        oss << "🍽 *" << cat->get_name() << "*\n";
+        oss << "_" << cat->get_description() << "_\n\n";
 
-        for (const auto& item : cat.get_items()) {
-            if (item.is_available()) {
-                oss << "• " << item.get_name() << " - " 
-                    << item.get_price() << "₽\n";
-                oss << "  _" << item.get_description() << "_\n";
-                oss << "  ⏱ " << item.get_preparation_time() << " мин.\n\n";
+        // Здесь теперь item_ptr, так как Category возвращает вектор умных указателей
+        for (const auto& item_ptr : cat->get_items()) {
+            if (item_ptr->is_available()) {
+                oss << "• " << item_ptr->get_name() << " - "
+                    << item_ptr->get_price() << "₽\n";
+                oss << "  _" << item_ptr->get_description() << "_\n";
+                oss << "  ⏱ " << item_ptr->get_preparation_time() << " мин.\n\n";
             }
         }
     }
@@ -126,7 +127,7 @@ json Menu::toJson() const {
         {"categories", json::array()}
     };
     for (const auto& cat : categories) {
-        j["categories"].push_back(cat.toJson());
+        j["categories"].push_back(cat->toJson());
     }
     return j;
 }
@@ -138,7 +139,7 @@ Menu Menu::fromJson(const json& j) {
 
     if (j.contains("categories")) {
         for (const auto& cat_json : j["categories"]) {
-            menu.categories.push_back(Category::fromJson(cat_json));
+            menu.categories.push_back(std::make_shared<Category>(Category::fromJson(cat_json)));
         }
     }
     return menu;
@@ -152,7 +153,7 @@ size_t Menu::get_categories_count() const {
 size_t Menu::get_total_items_count() const {
     size_t total = 0;
     for (const auto& cat : categories) {
-        total += cat.get_items_count();
+        total += cat->get_items_count();
     }
     return total;
 }
@@ -160,8 +161,8 @@ size_t Menu::get_total_items_count() const {
 double Menu::get_total_price_range_min() const {
     double min_price = std::numeric_limits<double>::max();
     for (const auto& cat : categories) {
-        if (cat.get_items_count() > 0) {
-            min_price = std::min(min_price, cat.get_min_price());
+        if (cat->get_items_count() > 0) {
+            min_price = std::min(min_price, cat->get_min_price());
         }
     }
     return (min_price == std::numeric_limits<double>::max()) ? 0.0 : min_price;
@@ -170,7 +171,7 @@ double Menu::get_total_price_range_min() const {
 double Menu::get_total_price_range_max() const {
     double max_price = 0.0;
     for (const auto& cat : categories) {
-        max_price = std::max(max_price, cat.get_max_price());
+        max_price = std::max(max_price, cat->get_max_price());
     }
     return max_price;
 }
