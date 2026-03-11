@@ -94,3 +94,39 @@ void OrderDistributionAlgorithm::assignOrderToBarista(Order& order, int baristaI
               << ". Ready at: " << order.estimatedReadyTime << " min"
               << " (prep time: " << order.totalPreparationTime << " min)" << std::endl;
 }
+
+double OrderDistributionAlgorithm::calculateItemPreparationTime(const Item& item) {
+    // Берем время приготовления из Item
+    return static_cast<double>(item.get_preparation_time());
+}
+
+double OrderDistributionAlgorithm::calculateOrderPreparationTime(const Order& order) {
+    double totalTime = 0.0;
+
+    for (const auto& item : order.items) {
+        totalTime += calculateItemPreparationTime(item);
+    }
+
+    if (order.items.size() > 3) {
+        totalTime *= 1.2;
+    }
+
+    return totalTime;
+}
+
+int OrderDistributionAlgorithm::findLeastLoadedBarista() {
+    int bestBaristaId = -1;
+    double minBusyTime = std::numeric_limits<double>::max();
+
+    for (const auto& barista : baristas) {
+        if (barista.isWorking) {
+            if (barista.busyUntilTime < minBusyTime) {
+                minBusyTime = barista.busyUntilTime;
+                bestBaristaId = barista.id;
+            }
+        }
+    }
+
+    return bestBaristaId;
+}
+
