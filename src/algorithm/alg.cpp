@@ -36,3 +36,11 @@ void OrderDistributionAlgorithm::setWorkingDayStart(double startTimeInMinutes) {
     }
 }
 
+void OrderDistributionAlgorithm::addOrderToCommonQueue(const Order& order) {
+    Order newOrder = order;
+    newOrder.orderTime = std::chrono::system_clock::now();
+    commonQueue.push_back(newOrder);
+
+    std::cout << "Order " << order.id << " added to common queue. "
+              << "Queue size: " << commonQueue.size() << std::endl;
+}
