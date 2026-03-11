@@ -19,3 +19,20 @@ void OrderDistributionAlgorithm::initializeBaristas(int totalBaristas) {
     }
 }
 
+void OrderDistributionAlgorithm::setBaristaStatus(int baristaId, bool isWorking) {
+    if (baristaId >= 0 && baristaId < static_cast<int>(baristas.size())) {
+        baristas[baristaId].isWorking = isWorking;
+        std::cout << "Barista " << baristaId << " status: "
+                  << (isWorking ? "WORKING" : "NOT WORKING") << std::endl;
+    }
+}
+
+void OrderDistributionAlgorithm::setWorkingDayStart(double startTimeInMinutes) {
+    workingDayStartTime = startTimeInMinutes;
+    currentTime = startTimeInMinutes;
+
+    for (auto& barista : baristas) {
+        barista.busyUntilTime = startTimeInMinutes;
+    }
+}
+
