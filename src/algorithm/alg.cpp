@@ -44,3 +44,53 @@ void OrderDistributionAlgorithm::addOrderToCommonQueue(const Order& order) {
     std::cout << "Order " << order.id << " added to common queue. "
               << "Queue size: " << commonQueue.size() << std::endl;
 }
+
+void OrderDistributionAlgorithm::distributeOrders() {
+    std::cout << "\n=== Distributing orders ===" << std::endl;
+    std::cout << "Orders in queue: " << commonQueue.size() << std::endl;
+    std::cout << "Working baristas: " << getWorkingBaristasCount() << std::endl;
+
+    while (!commonQueue.empty()) {
+        Order order = commonQueue.front();
+        commonQueue.pop_front();
+
+        order.totalPreparationTime = calculateOrderPreparationTime(order);
+
+        int bestBaristaId = findLeastLoadedBarista();
+
+        if (bestBaristaId != -1) {
+            assignOrderToBarista(order, bestBaristaId);
+        } else {
+            std::cerr << "No working baristas available!" << std::endl;
+            commonQueue.push_front(order);
+            break;
+        }
+    }
+
+    std::cout << "=== Distribution complete ===\n" << std::endl;
+}
+
+void OrderDistributionAlgorithm::assignOrderToBarista(Order& order, int baristaId) {
+    if (baristaId < 0 || baristaId >= static_cast<int>(baristas.size())) {
+        std::cerr << "Invalid barista ID: " << baristaId << std::endl;
+        return;
+    }
+
+    Barista& barista = baristas[baristaId];
+
+    if (!barista.isWorking) {
+        std::cerr << "Barista " << baristaId << " is not working!" << std::endl;
+        return;
+    }
+
+    double startTime = std::max(currentTime, barista.busyUntilTime);
+    order.estimatedReadyTime = startTime + order.totalPreparationTime;
+    order.assignedBaristaId = baristaId;
+
+    barista.orderQueue.push_back(order);
+    barista.busyUntilTime = order.estimatedReadyTime;
+
+    std::cout << "Order " << order.id << " assigned to Barista " << baristaId
+              << ". Ready at: " << order.estimatedReadyTime << " min"
+              << " (prep time: " << order.totalPreparationTime << " min)" << std::endl;
+}
