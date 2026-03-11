@@ -6,10 +6,11 @@
 #include <string>
 #include <memory>
 #include "../../cmake/json.hpp"
+#include "TelegramFormat.h"
 
 using json = nlohmann::json;
 
-class Category {
+class Category: TelegramFormat {
 private:
     int id{};
     std::string name;
@@ -49,6 +50,8 @@ public:
     static Category fromJson(const json& j);
 
     bool isValid() const;
+
+    std::string to_telegram_format() const override;
 };
 
 #endif

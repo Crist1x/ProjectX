@@ -88,3 +88,10 @@ bool Item::isValid() const {
            preparation_time > 0 &&
            cafe_id > 0;
 }
+
+std::string Item::to_telegram_format() const {
+    std::string result = name + " - " + std::to_string(price) + "₽\n";
+    result += "  _" + description + "_\n";
+    result += "  ⏱ " + std::to_string(preparation_time) + " мин.";
+    return result;
+}

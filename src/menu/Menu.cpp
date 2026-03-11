@@ -102,18 +102,7 @@ std::string Menu::to_telegram_format() const {
     oss << "📋 *Меню: " << cafe_name << "*\n\n";
 
     for (const auto& cat : categories) {
-        oss << "🍽 *" << cat->get_name() << "*\n";
-        oss << "_" << cat->get_description() << "_\n\n";
-
-        // Здесь теперь item_ptr, так как Category возвращает вектор умных указателей
-        for (const auto& item_ptr : cat->get_items()) {
-            if (item_ptr->is_available()) {
-                oss << "• " << item_ptr->get_name() << " - "
-                    << item_ptr->get_price() << "₽\n";
-                oss << "  _" << item_ptr->get_description() << "_\n";
-                oss << "  ⏱ " << item_ptr->get_preparation_time() << " мин.\n\n";
-            }
-        }
+        oss << cat->to_telegram_format();
     }
 
     return oss.str();

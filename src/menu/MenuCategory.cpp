@@ -1,6 +1,7 @@
 #include "menu/MenuCategory.h"
 #include <algorithm>
 #include <stdexcept>
+#include <sstream>
 
 Category::Category(int id, const std::string& name,
                            const std::string& description, int cafe_id)
@@ -124,4 +125,17 @@ Category Category::fromJson(const json& j) {
 
 bool Category::isValid() const {
     return id > 0 && !name.empty() && cafe_id > 0 && !items.empty();
+}
+
+std::string Category::to_telegram_format() const {
+    std::ostringstream oss;
+    oss << "🍽 *" << name << "*\n";
+    oss << "_" << description << "_\n\n";
+
+    for (const auto& item_ptr : items) {
+        if (item_ptr->is_available()) {
+            oss << "• " << item_ptr->to_telegram_format() << "\n\n";
+        }
+    }
+    return oss.str();
 }

@@ -6,13 +6,14 @@
 #include <string>
 #include <memory>
 #include "../../cmake/json.hpp"
+#include "TelegramFormat.h"
 
 using json = nlohmann::json;
 
 class Logger;
 class Database;
 
-class Menu {
+class Menu: TelegramFormat {
 private:
     int cafe_id{};
     std::string cafe_name;
@@ -47,7 +48,7 @@ public:
     void load_from_database();
     void save_to_database() const;
 
-    std::string to_telegram_format() const;
+    std::string to_telegram_format() const override;
 
     // JSON
     json toJson() const;
