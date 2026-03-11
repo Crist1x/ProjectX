@@ -3,6 +3,8 @@
 #include <iostream>
 #include <numeric>
 #include <limits>
+#include "algorithm/OrderDistributionAlgorithm.h"
+#include <iostream>
 
 OrderDistributionAlgorithm::OrderDistributionAlgorithm() 
     : currentTime(0), workingDayStartTime(0) {}
@@ -215,3 +217,4 @@ void OrderDistributionAlgorithm::reset() {
 
     std::cout << "Algorithm reset complete" << std::endl;
 }
+
