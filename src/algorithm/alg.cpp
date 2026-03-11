@@ -130,3 +130,32 @@ int OrderDistributionAlgorithm::findLeastLoadedBarista() {
     return bestBaristaId;
 }
 
+
+int OrderDistributionAlgorithm::findBaristaWithShortestQueue() {
+    int bestBaristaId = -1;
+    size_t minQueueSize = std::numeric_limits<size_t>::max();
+
+    for (const auto& barista : baristas) {
+        if (barista.isWorking) {
+            if (barista.orderQueue.size() < minQueueSize) {
+                minQueueSize = barista.orderQueue.size();
+                bestBaristaId = barista.id;
+            }
+        }
+    }
+
+    return bestBaristaId;
+}
+
+double OrderDistributionAlgorithm::getTotalProcessingTime() const {
+    double maxTime = currentTime;
+
+    for (const auto& barista : baristas) {
+        if (barista.isWorking && barista.busyUntilTime > maxTime) {
+            maxTime = barista.busyUntilTime;
+        }
+    }
+
+    return maxTime - currentTime;
+}
+
