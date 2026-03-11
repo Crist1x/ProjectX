@@ -159,3 +159,59 @@ double OrderDistributionAlgorithm::getTotalProcessingTime() const {
     return maxTime - currentTime;
 }
 
+
+double OrderDistributionAlgorithm::getAverageWaitTime() const {
+    double totalWaitTime = 0.0;
+    int orderCount = 0;
+
+    for (const auto& barista : baristas) {
+        for (const auto& order : barista.orderQueue) {
+            double waitTime = order.estimatedReadyTime - currentTime;
+            totalWaitTime += waitTime;
+            orderCount++;
+        }
+    }
+
+    return orderCount > 0 ? totalWaitTime / orderCount : 0.0;
+}
+
+
+std::vector<Barista> OrderDistributionAlgorithm::getBaristas() const {
+    return baristas;
+}
+
+std::deque<Order> OrderDistributionAlgorithm::getBaristaQueue(int baristaId) const {
+    if (baristaId >= 0 && baristaId < static_cast<int>(baristas.size())) {
+        return baristas[baristaId].orderQueue;
+    }
+    return std::deque<Order>();
+}
+
+
+size_t OrderDistributionAlgorithm::getCommonQueueSize() const {
+    return commonQueue.size();
+}
+
+int OrderDistributionAlgorithm::getWorkingBaristasCount() const {
+    int count = 0;
+    for (const auto& barista : baristas) {
+        if (barista.isWorking) {
+            count++;
+        }
+    }
+    return count;
+}
+
+
+void OrderDistributionAlgorithm::reset() {
+    currentTime = workingDayStartTime;
+    commonQueue.clear();
+
+    for (auto& barista : baristas) {
+        barista.orderQueue.clear();
+        barista.busyUntilTime = workingDayStartTime;
+        barista.totalOrdersCompleted = 0;
+    }
+
+    std::cout << "Algorithm reset complete" << std::endl;
+}
