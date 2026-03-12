@@ -3,6 +3,7 @@
 #include "menu/MenuCategory.h"
 #include "menu/MenuItem.h"
 
+// тесты для класса блюд
 TEST(MenuItemTest, CreationAndGetters) {
     Item item(1, "Латте", "Вкусный кофе", 150.0, 5, 1);
     EXPECT_EQ(item.get_id(), 1);
@@ -28,6 +29,7 @@ TEST(MenuItemTest, SettersThrowExceptions) {
     EXPECT_THROW(item.set_preparation_time(-5), std::invalid_argument);
 }
 
+// тесты для класса категорий
 TEST(MenuCategoryTest, AddItemAndCount) {
     Category cat(1, "Напитки", "Горячие", 1);
     Item coffee(1, "Эспрессо", "Крепкий", 100.0, 2, 1);
@@ -62,6 +64,7 @@ TEST(MenuCategoryTest, PriceCalculations) {
     EXPECT_EQ(cat.get_max_preparation_time(), 15);
 }
 
+// тесты для класса меню
 TEST(MenuTest, AddCategoryAndCount) {
     Menu menu(1, "Столовая");
     Category cat(1, "Супы", "Первое", 1);
@@ -111,6 +114,7 @@ TEST(MenuTest, TelegramFormatString) {
 
     std::string text = menu.to_telegram_format();
 
+    // Проверяем, что в итоговой строке есть нужные куски текста
     EXPECT_NE(text.find("Тест Кафе"), std::string::npos);
     EXPECT_NE(text.find("Тест Категория"), std::string::npos);
     EXPECT_NE(text.find("Блюдо"), std::string::npos);
