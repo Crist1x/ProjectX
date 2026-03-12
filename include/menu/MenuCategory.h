@@ -1,20 +1,22 @@
-#ifndef PROJECTX_Category_H
-#define PROJECTX_Category_H
+#ifndef PROJECTX_MENUCATEGORY_H
+#define PROJECTX_MENUCATEGORY_H
 
 #include "MenuItem.h"
 #include <vector>
 #include <string>
+#include <memory>
 #include "../../cmake/json.hpp"
+#include "TelegramFormat.h"
 
 using json = nlohmann::json;
 
-class Category {
+class Category: TelegramFormat {
 private:
     int id{};
     std::string name;
     std::string description;
     int cafe_id{};
-    std::vector<Item> items;
+    std::vector<std::shared_ptr<Item>> items;
 
 public:
     Category() = default;
@@ -25,7 +27,7 @@ public:
     const std::string& get_name() const;
     const std::string& get_description() const;
     int get_cafe_id() const;
-    const std::vector<Item>& get_items() const;
+    const std::vector<std::shared_ptr<Item>>& get_items() const;
 
     // Сеттеры
     void set_name(const std::string& new_name);
@@ -48,6 +50,8 @@ public:
     static Category fromJson(const json& j);
 
     bool isValid() const;
+
+    std::string to_telegram_format() const override;
 };
 
 #endif

@@ -1,7 +1,3 @@
-//
-// Created by CRIST1X on 10.03.2026.
-//
-
 #ifndef PROJECT_ORDERREPOSITORY_H
 #define PROJECT_ORDERREPOSITORY_H
 
