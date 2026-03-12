@@ -42,47 +42,38 @@ void Menu::add_category(const Category& category) {
 }
 
 void Menu::remove_category(int category_id) {
+    auto initial_size = categories.size();
+
     categories.erase(
         std::remove_if(categories.begin(), categories.end(),
-            [category_id](const std::shared_ptr<Category>& cat) { return cat->get_id() == category_id; }),
+            [category_id](const std::shared_ptr<Category>& cat_ptr) {
+                return cat_ptr->get_id() == category_id;
+            }),
         categories.end()
     );
-    log_info("Category removed: ID " + std::to_string(category_id));
+
+    if (categories.size() == initial_size) {
+        throw std::invalid_argument("Category with given ID not found in menu");
+    }
 }
 
-Category* Menu::find_category(int category_id) {
-    for (auto& cat : categories) {
-        if (cat->get_id() == category_id) {
-            return cat.get();
+std::optional<std::shared_ptr<Category>> Menu::find_category(int category_id) const {
+    for (const auto& cat_ptr : categories) {
+        if (cat_ptr->get_id() == category_id) {
+            return cat_ptr;
         }
     }
-    return nullptr;
+    return std::nullopt;
 }
 
-const Category* Menu::find_category(int category_id) const {
-    for (const auto& cat : categories) {
-        if (cat->get_id() == category_id) {
-            return cat.get();
+std::optional<std::shared_ptr<Item>> Menu::find_item(int item_id) const {
+    for (const auto& cat_ptr : categories) {
+        auto found_item = cat_ptr->find_item(item_id);
+        if (found_item.has_value()) {
+            return found_item;
         }
     }
-    return nullptr;
-}
-
-// Поиск блюда
-Item* Menu::find_item(int item_id) {
-    for (auto& cat : categories) {
-        Item* item = cat->find_item(item_id);
-        if (item) return item;
-    }
-    return nullptr;
-}
-
-const Item* Menu::find_item(int item_id) const {
-    for (const auto& cat : categories) {
-        const Item* item = cat->find_item(item_id);
-        if (item) return item;
-    }
-    return nullptr;
+    return std::nullopt;
 }
 
 // БД (Реализует ОЛЕГ)

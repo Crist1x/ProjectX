@@ -5,12 +5,13 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <optional>
 #include "../../cmake/json.hpp"
 #include "TelegramFormat.h"
 
 using json = nlohmann::json;
 
-class Category: TelegramFormat {
+class Category: public TelegramFormat {
 private:
     int id{};
     std::string name;
@@ -36,8 +37,7 @@ public:
     // Добавление/удаление и всякое такое
     void add_item(const Item& item);
     void remove_item(int item_id);
-    Item* find_item(int item_id);
-    const Item* find_item(int item_id) const;
+    std::optional<std::shared_ptr<Item>> find_item(int item_id) const;
 
     // Чуть-чуть информации
     size_t get_items_count() const;
