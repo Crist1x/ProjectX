@@ -1,4 +1,3 @@
-# menu
 add_library(menu_lib STATIC
         menu/MenuItem.cpp
         menu/MenuCategory.cpp
@@ -6,10 +5,16 @@ add_library(menu_lib STATIC
 )
 target_include_directories(menu_lib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
-# spdlog
 add_library(logger_lib INTERFACE)
 target_include_directories(logger_lib INTERFACE ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(logger_lib INTERFACE spdlog::spdlog)
+
+add_library(logger
+        ${CMAKE_SOURCE_DIR}/src/logger/logger.cpp
+        ../include/logger/logger.h
+)
+target_include_directories(logger PUBLIC ${CMAKE_SOURCE_DIR}/include/logger)
+target_link_libraries(logger PUBLIC spdlog::spdlog)
 
 # db
 add_library(db_lib STATIC
@@ -24,3 +29,13 @@ target_link_libraries(db_lib PUBLIC
         menu_lib
         logger_lib
 )
+
+add_library(algorithm_lib
+        algorithm/alg.cpp
+)
+
+target_include_directories(algorithm_lib PUBLIC
+        ${CMAKE_SOURCE_DIR}/include
+)
+
+target_link_libraries(algorithm_lib PRIVATE menu_lib)
