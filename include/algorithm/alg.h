@@ -7,16 +7,10 @@
 #include <string>
 #include <chrono>
 #include <limits>
+#include "menu/Order.h"
 
-struct Order {
-    std::string id;
-    std::vector<Item> items;
-    double totalPreparationTime;
-    double estimatedReadyTime;
-    int assignedBaristaId;
 
-    Order() : totalPreparationTime(0), estimatedReadyTime(0), assignedBaristaId(-1) {}
-};
+
 
 class Barista {
 private:

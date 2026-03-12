@@ -133,9 +133,12 @@ double alg::calculateItemPreparationTime(const Item& item) {
 double alg::calculateOrderPreparationTime(const Order& order) {
     double totalTime = 0.0;
 
-    for (const auto& item : order.items) {
-        totalTime += calculateItemPreparationTime(item);
+
+    for (const auto& item_ptr : order.items) {
+        totalTime += calculateItemPreparationTime(*item_ptr);
     }
+
+
 
     if (order.items.size() > 3) {
         totalTime *= 1.2;
