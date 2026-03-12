@@ -41,8 +41,6 @@ void Barista::clearQueue() {
     orderQueue.clear();
 }
 
-// ========== РЕАЛИЗАЦИЯ КЛАССА ORDERDISTRIBUTIONALGORITHM ==========
-
 alg::alg()
     : currentTime(0), workingDayStartTime(0) {}
 
@@ -59,7 +57,7 @@ void alg::setBaristaStatus(int baristaId, bool isWorking) {
     if (baristaId >= 0 && baristaId < static_cast<int>(baristas.size())) {
         baristas[baristaId].setIsWorking(isWorking);
         std::cout << "Barista " << baristaId << " status: "
-                  << (isWorking ? "WORKING" : "NOT WORKING") << std::endl;
+                  << (isWorking ? "in work" : "not work") << std::endl;
     }
 }
 
@@ -74,12 +72,12 @@ void alg::setWorkingDayStart(double startTimeInMinutes) {
 
 void alg::addOrderToCommonQueue(const Order& order) {
     commonQueue.push_back(order);
-    std::cout << "Order " << order.id << " added to common queue. "
+    std::cout << "Order " << order.id << " added to common queue"
               << "Queue size: " << commonQueue.size() << std::endl;
 }
 
 void alg::distributeOrders() {
-    std::cout << "\n=== Distributing orders ===" << std::endl;
+    std::cout << "\n Distributing orders" << std::endl;
     std::cout << "Orders in queue: " << commonQueue.size() << std::endl;
     std::cout << "Working baristas: " << getWorkingBaristasCount() << std::endl;
 
@@ -94,13 +92,13 @@ void alg::distributeOrders() {
         if (bestBaristaId != -1) {
             assignOrderToBarista(order, bestBaristaId);
         } else {
-            std::cerr << "No working baristas available!" << std::endl;
+            std::cerr << "no available" << std::endl;
             commonQueue.push_front(order);
             break;
         }
     }
 
-    std::cout << "=== Distribution complete ===\n" << std::endl;
+    std::cout << "complete\n" << std::endl;
 }
 
 void alg::assignOrderToBarista(Order& order, int baristaId) {
@@ -242,19 +240,19 @@ void alg::reset() {
 }
 
 void alg::printStatistics() const {
-    std::cout << "\n========== STATISTICS ==========" << std::endl;
+    std::cout << "\nSTATISTICS" << std::endl;
     std::cout << "Working baristas: " << getWorkingBaristasCount() << std::endl;
     std::cout << "Orders in common queue: " << commonQueue.size() << std::endl;
     std::cout << "Total processing time: " << getTotalProcessingTime() << " min" << std::endl;
     std::cout << "Average wait time: " << getAverageWaitTime() << " min" << std::endl;
 
-    std::cout << "\n--- Barista Details ---" << std::endl;
+    std::cout << "\nBarista Details" << std::endl;
     for (const auto& barista : baristas) {
         std::cout << "Barista " << barista.getId() << ": "
-                  << (barista.getIsWorking() ? "WORKING" : "NOT WORKING")
+                  << (barista.getIsWorking() ? "in work" : "no working")
                   << " | Queue: " << barista.getQueueSize() << " orders"
                   << " | Busy until: " << barista.getBusyUntilTime() << " min"
                   << std::endl;
     }
-    std::cout << "===============================\n" << std::endl;
+    std::cout << "\n" << std::endl;
 }
