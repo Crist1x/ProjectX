@@ -4,10 +4,11 @@
 #include <string>
 #include <map>
 #include "../../cmake/json.hpp"
+#include "TelegramFormat.h"
 
 using json = nlohmann::json;
 
-class Item {
+class Item: public TelegramFormat {
 private:
     int id{};
     std::string name;
@@ -46,6 +47,9 @@ public:
     static Item fromJson(const json& j);
 
     bool isValid() const;
+
+public:
+    std::string to_telegram_format() const override;
 };
 
 #endif
