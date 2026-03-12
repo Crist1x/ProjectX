@@ -1,0 +1,31 @@
+# Cmake
+cmake-build-*/
+build/
+out/
+.idea/
+
+# Фетч контент
+_deps/
+
+# Исполняемые файлы
+*.exe
+*.a
+*.so
+*.dylib
+ProjectX_run
+menu_tests
+
+# Файлы бд
+*.db
+*.sqlite
+*.sqlite3
+
+# Логи
+*.log
+bot_logs.txt
+
+# мусор от мака
+.DS_Store
+
+# мусор винды
+Thumbs.db
