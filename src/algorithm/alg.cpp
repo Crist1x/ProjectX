@@ -1,53 +1,84 @@
-#include "algorithm/OrderDistributionAlgorithm.h"
+#include "algorithm/alg.h"
 #include <algorithm>
 #include <iostream>
-#include <numeric>
-#include <limits>
-#include "algorithm/OrderDistributionAlgorithm.h"
-#include <iostream>
 
-OrderDistributionAlgorithm::OrderDistributionAlgorithm() 
+
+Barista::Barista()
+    : id(0), isWorking(false), busyUntilTime(0), totalOrdersCompleted(0) {}
+
+Barista::Barista(int baristaId, bool working)
+    : id(baristaId), isWorking(working), busyUntilTime(0), totalOrdersCompleted(0) {}
+
+int Barista::getId() const { return id; }
+bool Barista::getIsWorking() const { return isWorking; }
+const std::deque<Order>& Barista::getOrderQueue() const { return orderQueue; }
+double Barista::getBusyUntilTime() const { return busyUntilTime; }
+int Barista::getTotalOrdersCompleted() const { return totalOrdersCompleted; }
+size_t Barista::getQueueSize() const { return orderQueue.size(); }
+
+void Barista::setIsWorking(bool working) { isWorking = working; }
+void Barista::setBusyUntilTime(double time) { busyUntilTime = time; }
+void Barista::incrementOrdersCompleted() { totalOrdersCompleted++; }
+
+void Barista::addOrderToQueue(const Order& order) {
+    orderQueue.push_back(order);
+}
+
+Order Barista::getNextOrder() {
+    if (!orderQueue.empty()) {
+        Order order = orderQueue.front();
+        orderQueue.pop_front();
+        return order;
+    }
+    return Order();
+}
+
+bool Barista::hasOrders() const {
+    return !orderQueue.empty();
+}
+
+void Barista::clearQueue() {
+    orderQueue.clear();
+}
+
+// ========== РЕАЛИЗАЦИЯ КЛАССА ORDERDISTRIBUTIONALGORITHM ==========
+
+alg::alg()
     : currentTime(0), workingDayStartTime(0) {}
 
-void OrderDistributionAlgorithm::initializeBaristas(int totalBaristas) {
+void alg::initializeBaristas(int totalBaristas) {
     baristas.clear();
-    baristas.resize(totalBaristas);
-    
+    baristas.reserve(totalBaristas);
+
     for (int i = 0; i < totalBaristas; ++i) {
-        baristas[i].id = i;
-        baristas[i].isWorking = false;
-        baristas[i].busyUntilTime = workingDayStartTime;
-        baristas[i].totalOrdersCompleted = 0;
+        baristas.emplace_back(i, false);
     }
 }
 
-void OrderDistributionAlgorithm::setBaristaStatus(int baristaId, bool isWorking) {
+void alg::setBaristaStatus(int baristaId, bool isWorking) {
     if (baristaId >= 0 && baristaId < static_cast<int>(baristas.size())) {
-        baristas[baristaId].isWorking = isWorking;
+        baristas[baristaId].setIsWorking(isWorking);
         std::cout << "Barista " << baristaId << " status: "
                   << (isWorking ? "WORKING" : "NOT WORKING") << std::endl;
     }
 }
 
-void OrderDistributionAlgorithm::setWorkingDayStart(double startTimeInMinutes) {
+void alg::setWorkingDayStart(double startTimeInMinutes) {
     workingDayStartTime = startTimeInMinutes;
     currentTime = startTimeInMinutes;
 
     for (auto& barista : baristas) {
-        barista.busyUntilTime = startTimeInMinutes;
+        barista.setBusyUntilTime(startTimeInMinutes);
     }
 }
 
-void OrderDistributionAlgorithm::addOrderToCommonQueue(const Order& order) {
-    Order newOrder = order;
-    newOrder.orderTime = std::chrono::system_clock::now();
-    commonQueue.push_back(newOrder);
-
+void alg::addOrderToCommonQueue(const Order& order) {
+    commonQueue.push_back(order);
     std::cout << "Order " << order.id << " added to common queue. "
               << "Queue size: " << commonQueue.size() << std::endl;
 }
 
-void OrderDistributionAlgorithm::distributeOrders() {
+void alg::distributeOrders() {
     std::cout << "\n=== Distributing orders ===" << std::endl;
     std::cout << "Orders in queue: " << commonQueue.size() << std::endl;
     std::cout << "Working baristas: " << getWorkingBaristasCount() << std::endl;
@@ -72,7 +103,7 @@ void OrderDistributionAlgorithm::distributeOrders() {
     std::cout << "=== Distribution complete ===\n" << std::endl;
 }
 
-void OrderDistributionAlgorithm::assignOrderToBarista(Order& order, int baristaId) {
+void alg::assignOrderToBarista(Order& order, int baristaId) {
     if (baristaId < 0 || baristaId >= static_cast<int>(baristas.size())) {
         std::cerr << "Invalid barista ID: " << baristaId << std::endl;
         return;
@@ -80,29 +111,28 @@ void OrderDistributionAlgorithm::assignOrderToBarista(Order& order, int baristaI
 
     Barista& barista = baristas[baristaId];
 
-    if (!barista.isWorking) {
+    if (!barista.getIsWorking()) {
         std::cerr << "Barista " << baristaId << " is not working!" << std::endl;
         return;
     }
 
-    double startTime = std::max(currentTime, barista.busyUntilTime);
+    double startTime = std::max(currentTime, barista.getBusyUntilTime());
     order.estimatedReadyTime = startTime + order.totalPreparationTime;
     order.assignedBaristaId = baristaId;
 
-    barista.orderQueue.push_back(order);
-    barista.busyUntilTime = order.estimatedReadyTime;
+    barista.addOrderToQueue(order);
+    barista.setBusyUntilTime(order.estimatedReadyTime);
 
     std::cout << "Order " << order.id << " assigned to Barista " << baristaId
               << ". Ready at: " << order.estimatedReadyTime << " min"
               << " (prep time: " << order.totalPreparationTime << " min)" << std::endl;
 }
 
-double OrderDistributionAlgorithm::calculateItemPreparationTime(const Item& item) {
-    // Берем время приготовления из Item
+double alg::calculateItemPreparationTime(const Item& item) {
     return static_cast<double>(item.get_preparation_time());
 }
 
-double OrderDistributionAlgorithm::calculateOrderPreparationTime(const Order& order) {
+double alg::calculateOrderPreparationTime(const Order& order) {
     double totalTime = 0.0;
 
     for (const auto& item : order.items) {
@@ -116,15 +146,15 @@ double OrderDistributionAlgorithm::calculateOrderPreparationTime(const Order& or
     return totalTime;
 }
 
-int OrderDistributionAlgorithm::findLeastLoadedBarista() {
+int alg::findLeastLoadedBarista() {
     int bestBaristaId = -1;
     double minBusyTime = std::numeric_limits<double>::max();
 
     for (const auto& barista : baristas) {
-        if (barista.isWorking) {
-            if (barista.busyUntilTime < minBusyTime) {
-                minBusyTime = barista.busyUntilTime;
-                bestBaristaId = barista.id;
+        if (barista.getIsWorking()) {
+            if (barista.getBusyUntilTime() < minBusyTime) {
+                minBusyTime = barista.getBusyUntilTime();
+                bestBaristaId = barista.getId();
             }
         }
     }
@@ -132,16 +162,15 @@ int OrderDistributionAlgorithm::findLeastLoadedBarista() {
     return bestBaristaId;
 }
 
-
-int OrderDistributionAlgorithm::findBaristaWithShortestQueue() {
+int alg::findBaristaWithShortestQueue() {
     int bestBaristaId = -1;
     size_t minQueueSize = std::numeric_limits<size_t>::max();
 
     for (const auto& barista : baristas) {
-        if (barista.isWorking) {
-            if (barista.orderQueue.size() < minQueueSize) {
-                minQueueSize = barista.orderQueue.size();
-                bestBaristaId = barista.id;
+        if (barista.getIsWorking()) {
+            if (barista.getQueueSize() < minQueueSize) {
+                minQueueSize = barista.getQueueSize();
+                bestBaristaId = barista.getId();
             }
         }
     }
@@ -149,25 +178,24 @@ int OrderDistributionAlgorithm::findBaristaWithShortestQueue() {
     return bestBaristaId;
 }
 
-double OrderDistributionAlgorithm::getTotalProcessingTime() const {
+double alg::getTotalProcessingTime() const {
     double maxTime = currentTime;
 
     for (const auto& barista : baristas) {
-        if (barista.isWorking && barista.busyUntilTime > maxTime) {
-            maxTime = barista.busyUntilTime;
+        if (barista.getIsWorking() && barista.getBusyUntilTime() > maxTime) {
+            maxTime = barista.getBusyUntilTime();
         }
     }
 
     return maxTime - currentTime;
 }
 
-
-double OrderDistributionAlgorithm::getAverageWaitTime() const {
+double alg::getAverageWaitTime() const {
     double totalWaitTime = 0.0;
     int orderCount = 0;
 
     for (const auto& barista : baristas) {
-        for (const auto& order : barista.orderQueue) {
+        for (const auto& order : barista.getOrderQueue()) {
             double waitTime = order.estimatedReadyTime - currentTime;
             totalWaitTime += waitTime;
             orderCount++;
@@ -177,44 +205,56 @@ double OrderDistributionAlgorithm::getAverageWaitTime() const {
     return orderCount > 0 ? totalWaitTime / orderCount : 0.0;
 }
 
-
-std::vector<Barista> OrderDistributionAlgorithm::getBaristas() const {
+const std::vector<Barista>& alg::getBaristas() const {
     return baristas;
 }
 
-std::deque<Order> OrderDistributionAlgorithm::getBaristaQueue(int baristaId) const {
+const Barista& alg::getBarista(int baristaId) const {
+    static Barista empty;
     if (baristaId >= 0 && baristaId < static_cast<int>(baristas.size())) {
-        return baristas[baristaId].orderQueue;
+        return baristas[baristaId];
     }
-    return std::deque<Order>();
+    return empty;
 }
 
-
-size_t OrderDistributionAlgorithm::getCommonQueueSize() const {
+size_t alg::getCommonQueueSize() const {
     return commonQueue.size();
 }
 
-int OrderDistributionAlgorithm::getWorkingBaristasCount() const {
+int alg::getWorkingBaristasCount() const {
     int count = 0;
     for (const auto& barista : baristas) {
-        if (barista.isWorking) {
-            count++;
-        }
+        if (barista.getIsWorking()) count++;
     }
     return count;
 }
 
-
-void OrderDistributionAlgorithm::reset() {
+void alg::reset() {
     currentTime = workingDayStartTime;
     commonQueue.clear();
 
     for (auto& barista : baristas) {
-        barista.orderQueue.clear();
-        barista.busyUntilTime = workingDayStartTime;
-        barista.totalOrdersCompleted = 0;
+        barista.clearQueue();
+        barista.setBusyUntilTime(workingDayStartTime);
     }
 
     std::cout << "Algorithm reset complete" << std::endl;
 }
 
+void alg::printStatistics() const {
+    std::cout << "\n========== STATISTICS ==========" << std::endl;
+    std::cout << "Working baristas: " << getWorkingBaristasCount() << std::endl;
+    std::cout << "Orders in common queue: " << commonQueue.size() << std::endl;
+    std::cout << "Total processing time: " << getTotalProcessingTime() << " min" << std::endl;
+    std::cout << "Average wait time: " << getAverageWaitTime() << " min" << std::endl;
+
+    std::cout << "\n--- Barista Details ---" << std::endl;
+    for (const auto& barista : baristas) {
+        std::cout << "Barista " << barista.getId() << ": "
+                  << (barista.getIsWorking() ? "WORKING" : "NOT WORKING")
+                  << " | Queue: " << barista.getQueueSize() << " orders"
+                  << " | Busy until: " << barista.getBusyUntilTime() << " min"
+                  << std::endl;
+    }
+    std::cout << "===============================\n" << std::endl;
+}

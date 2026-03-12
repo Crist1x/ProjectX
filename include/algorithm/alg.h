@@ -1,35 +1,56 @@
-#ifndef PROJECTX_ORDERDISTRIBUTIONALGORITHM_H
-#define PROJECTX_ORDERDISTRIBUTIONALGORITHM_H
+#ifndef PROJECTX_ALG_H
+#define PROJECTX_ALG_H
 
 #include "menu/MenuItem.h"
 #include <vector>
 #include <deque>
 #include <string>
 #include <chrono>
-#include <map>
+#include <limits>
 
 struct Order {
     std::string id;
-    std::vector<Item> items;  // ← Используем Item, а не MenuItem!
+    std::vector<Item> items;
     double totalPreparationTime;
     double estimatedReadyTime;
     int assignedBaristaId;
-    std::chrono::system_clock::time_point orderTime;
 
     Order() : totalPreparationTime(0), estimatedReadyTime(0), assignedBaristaId(-1) {}
 };
 
-struct Barista {
+class Barista {
+private:
     int id;
     bool isWorking;
     std::deque<Order> orderQueue;
     double busyUntilTime;
     int totalOrdersCompleted;
 
-    Barista() : id(0), isWorking(false), busyUntilTime(0), totalOrdersCompleted(0) {}
+public:
+    Barista();
+    Barista(int baristaId, bool working = false);
+
+    // Геттеры
+    int getId() const;
+    bool getIsWorking() const;
+    const std::deque<Order>& getOrderQueue() const;
+    double getBusyUntilTime() const;
+    int getTotalOrdersCompleted() const;
+    size_t getQueueSize() const;
+
+    // Сеттеры
+    void setIsWorking(bool working);
+    void setBusyUntilTime(double time);
+    void incrementOrdersCompleted();
+
+    // Управление очередью
+    void addOrderToQueue(const Order& order);
+    Order getNextOrder();
+    bool hasOrders() const;
+    void clearQueue();
 };
 
-class OrderDistributionAlgorithm {
+class alg {
 private:
     std::vector<Barista> baristas;
     std::deque<Order> commonQueue;
@@ -41,7 +62,7 @@ private:
     int findBaristaWithShortestQueue();
 
 public:
-    OrderDistributionAlgorithm();
+    alg();
 
     // Инициализация
     void initializeBaristas(int totalBaristas);
@@ -59,8 +80,8 @@ public:
     double getAverageWaitTime() const;
 
     // Статистика
-    std::vector<Barista> getBaristas() const;
-    std::deque<Order> getBaristaQueue(int baristaId) const;
+    const std::vector<Barista>& getBaristas() const;
+    const Barista& getBarista(int baristaId) const;
     size_t getCommonQueueSize() const;
     int getWorkingBaristasCount() const;
 
@@ -69,4 +90,4 @@ public:
     void printStatistics() const;
 };
 
-#endif PROJECTX_ORDERDISTRIBUTIONALGORITHM_H
+#endif
