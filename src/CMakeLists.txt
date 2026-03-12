@@ -32,6 +32,7 @@ target_link_libraries(db_lib PUBLIC
 
 add_library(algorithm_lib
         algorithm/alg.cpp
+        ../include/menu/Order.h
 )
 
 target_include_directories(algorithm_lib PUBLIC
