@@ -1,7 +1,7 @@
 enable_testing()
 
 add_executable(run_tests
-        test1.cpp
+        test_menu.cpp
 )
 
 target_include_directories(run_tests PRIVATE
