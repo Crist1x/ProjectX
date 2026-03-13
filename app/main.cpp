@@ -1,34 +1,34 @@
-#include "menu/MenuItem.h"
-#include "menu/MenuCategory.h"
-#include "menu/Menu.h"
+#include "bot/BotController.h"
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
-#include <memory>
+#include <stdexcept>
 
 int main() {
-    Menu cafe_menu(1, "Булочная");
+    try {
+        const char* token = "8212901743:AAG18i5JT3bVXADIRJLQqAob0UA-18RL6jQ";
+        if (token == nullptr || std::string(token).empty()) {
+            throw std::runtime_error("Set PROJECTX_BOT_TOKEN before запуском бота");
+        }
 
-    Category drinks(1, "Напитки", "Горячие и холодные напитки", 1);
+        const std::filesystem::path projectRoot = PROJECTX_ROOT;
+        const std::filesystem::path databaseDirectory = projectRoot / "databases";
+        const std::filesystem::path databasePath = databaseDirectory / "projectx.db";
 
-    drinks.add_item(Item(1, "Кофе Латте", "Молочный кофе", 150.0, 5, 1, true));
-    drinks.add_item(Item(2, "Чай Зелёный", "Китайский чай", 100.0, 3, 1, true));
+        std::filesystem::create_directories(databaseDirectory);
 
-    // Категория "Выпечка"
-    Category bakery(2, "Выпечка", "Свежая выпечка", 1);
-    bakery.add_item(Item(3, "Круассан", "С маслом", 200.0, 10, 1, true));
-    bakery.add_item(Item(4, "Пончик", "С шоколадом", 150.0, 5, 1, true));
+        db::Database database(databasePath.string());
+        database.initializeSchema();
 
-    cafe_menu.add_category(drinks);
-    cafe_menu.add_category(bakery);
+        db::UserRepository userRepository(database);
+        db::MenuRepository menuRepository(database);
+        db::OrderRepository orderRepository(database);
 
-    std::cout << cafe_menu.to_telegram_format() << std::endl;
-
-    auto item_opt = cafe_menu.find_item(3);
-
-    if (item_opt.has_value()) {
-        std::cout << "Нашли: " << item_opt.value()->get_name()
-                  << " за " << item_opt.value()->get_price() << "₽\n";
-    } else {
-        std::cout << "Упс! Такого блюда в меню нет.\n";
+        BotController botController(token, database, userRepository, menuRepository, orderRepository);
+        botController.run();
+    } catch (const std::exception& e) {
+        std::cerr << "Bot startup failed: " << e.what() << "\n";
+        return 1;
     }
 
     return 0;
