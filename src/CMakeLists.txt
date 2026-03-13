@@ -33,6 +33,7 @@ target_link_libraries(db_lib PUBLIC
 add_library(algorithm_lib
         algorithm/alg.cpp
         ../include/menu/Order.h
+        ../include/bot/Cart.h
 )
 
 target_include_directories(algorithm_lib PUBLIC
@@ -44,6 +45,7 @@ target_link_libraries(algorithm_lib PRIVATE menu_lib)
 add_library(bot_lib STATIC
         bot/BotController.cpp
         ../include/bot/BotController.h
+        bot/Cart.cpp
 )
 target_include_directories(bot_lib PUBLIC
         ${CMAKE_SOURCE_DIR}/include

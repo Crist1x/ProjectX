@@ -29,3 +29,14 @@ bot_logs.txt
 
 # мусор винды
 Thumbs.db
+
+# Environment variables
+.env
+*.env.local
+
+# Database
+databases/*.db
+
+# Build
+cmake-build-*/
+build/
