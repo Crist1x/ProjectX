@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <optional>
 #include "../../cmake/json.hpp"
 #include "TelegramFormat.h"
 
@@ -13,11 +14,10 @@ using json = nlohmann::json;
 class Logger;
 class Database;
 
-class Menu: TelegramFormat {
+class Menu: public TelegramFormat {
 private:
     int cafe_id{};
     std::string cafe_name;
-    // Применили тот же фикс: теперь категории живут в куче, указатели безопасны
     std::vector<std::shared_ptr<Category>> categories;
     std::weak_ptr<Logger> logger;
     std::weak_ptr<Database> database;
@@ -38,11 +38,9 @@ public:
     // Управление
     void add_category(const Category& category);
     void remove_category(int category_id);
-    Category* find_category(int category_id);
-    const Category* find_category(int category_id) const;
 
-    Item* find_item(int item_id);
-    const Item* find_item(int item_id) const;
+    std::optional<std::shared_ptr<Category>> find_category(int category_id) const;
+    std::optional<std::shared_ptr<Item>> find_item(int item_id) const;
 
     // Загрузка/сохранение
     void load_from_database();

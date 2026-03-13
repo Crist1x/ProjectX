@@ -52,25 +52,16 @@ void Category::remove_item(int item_id) {
     );
 }
 
-Item* Category::find_item(int item_id) {
-    for (auto& item : items) {
-        if (item->get_id() == item_id) {
-            return item.get();
+std::optional<std::shared_ptr<Item>> Category::find_item(int item_id) const {
+    for (const auto& item_ptr : items) {
+        if (item_ptr->get_id() == item_id) {
+            return item_ptr;
         }
     }
-    return nullptr;
+    return std::nullopt;
 }
 
-const Item* Category::find_item(int item_id) const {
-    for (const auto& item : items) {
-        if (item->get_id() == item_id) {
-            return item.get();
-        }
-    }
-    return nullptr;
-}
-
-// Чуть чуть информации
+// Чуть-чуть информации
 size_t Category::get_items_count() const {
     return items.size();
 }

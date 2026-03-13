@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 project(ProjectX VERSION 1.0 LANGUAGES CXX)
-
+include_directories(${CMAKE_SOURCE_DIR}/include)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -37,3 +37,7 @@ find_package(SQLite3 REQUIRED)
 add_subdirectory(src)
 add_subdirectory(app)
 add_subdirectory(tests)
+get_target_property(BOT_APP_SOURCES bot_app SOURCES)
+if(BOT_APP_SOURCES)
+    target_include_directories(bot_app PRIVATE ${CMAKE_SOURCE_DIR}/include)
+endif()

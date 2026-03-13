@@ -92,10 +92,10 @@ TEST(MenuTest, FindItemGlobally) {
 
     auto found_item = menu.find_item(42);
     ASSERT_NE(found_item, nullptr);
-    EXPECT_EQ(found_item->get_name(), "Ватрушка");
+    EXPECT_EQ(found_item.value()->get_name(), "Ватрушка");
 
     auto not_found = menu.find_item(999);
-    EXPECT_EQ(not_found, nullptr);
+    EXPECT_FALSE(not_found.has_value());
 }
 
 TEST(MenuTest, MenuPriceRange) {
