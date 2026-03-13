@@ -9,6 +9,10 @@ target_include_directories(bot_app PRIVATE
         ${CMAKE_SOURCE_DIR}/include
 )
 
+target_compile_definitions(bot_app PRIVATE
+        PROJECTX_ROOT="${CMAKE_SOURCE_DIR}"
+)
+
 target_link_libraries(bot_app PRIVATE
         menu_lib
         db_lib
