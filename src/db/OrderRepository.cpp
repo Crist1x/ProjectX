@@ -3,6 +3,28 @@
 #include <iostream>
 
 namespace db {
+namespace {
+::Order makeOrder(sqlite3_stmt* stmt) {
+    return ::Order(
+        sqlite3_column_int(stmt, 0),
+        sqlite3_column_int(stmt, 1),
+        sqlite3_column_double(stmt, 2),
+        reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)),
+        reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4))
+    );
+}
+
+::OrderItem makeOrderItem(sqlite3_stmt* stmt) {
+    return ::OrderItem(
+        sqlite3_column_int(stmt, 0),
+        sqlite3_column_int(stmt, 1),
+        sqlite3_column_int(stmt, 2),
+        sqlite3_column_int(stmt, 3),
+        sqlite3_column_double(stmt, 4)
+    );
+}
+}
+
 OrderRepository::OrderRepository(Database& database) : db_(database) {}
 
 bool OrderRepository::createOrder(int userId, double totalAmount) {
@@ -20,21 +42,15 @@ bool OrderRepository::createOrder(int userId, double totalAmount) {
     return true;
 }
 
-std::optional<Order> OrderRepository::findOrderById(int id) {
+std::optional<::Order> OrderRepository::findOrderById(int id) {
     const char* sql = "SELECT id, user_id, total_amount, status, created_at FROM orders WHERE id = ?;";
     StatementPtr stmt = db_.prepare(sql);
 
     sqlite3_bind_int(stmt.get(), 1, id);
 
-    Order order;
     int rc = sqlite3_step(stmt.get());
     if (rc == SQLITE_ROW) {
-        order.id = sqlite3_column_int(stmt.get(), 0);
-        order.userId = sqlite3_column_int(stmt.get(), 1);
-        order.totalAmount = sqlite3_column_double(stmt.get(), 2);
-        order.status = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 3));
-        order.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 4));
-        return order;
+        return makeOrder(stmt.get());
     }
     if (rc != SQLITE_DONE) {
         throw DatabaseException("Failed to find order by id: " + std::string(sqlite3_errmsg(db_.getHandle())));
@@ -43,22 +59,16 @@ std::optional<Order> OrderRepository::findOrderById(int id) {
     return std::nullopt;
 }
 
-std::vector<Order> OrderRepository::findOrdersByUser(int userId) {
+std::vector<::Order> OrderRepository::findOrdersByUser(int userId) {
     const char* sql = "SELECT id, user_id, total_amount, status, created_at FROM orders WHERE user_id = ?;";
     StatementPtr stmt = db_.prepare(sql);
-    std::vector<Order> orders;
+    std::vector<::Order> orders;
 
     sqlite3_bind_int(stmt.get(), 1, userId);
 
     int rc = SQLITE_ROW;
     while ((rc = sqlite3_step(stmt.get())) == SQLITE_ROW) {
-        Order order;
-        order.id = sqlite3_column_int(stmt.get(), 0);
-        order.userId = sqlite3_column_int(stmt.get(), 1);
-        order.totalAmount = sqlite3_column_double(stmt.get(), 2);
-        order.status = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 3));
-        order.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 4));
-        orders.push_back(order);
+        orders.push_back(makeOrder(stmt.get()));
     }
     if (rc != SQLITE_DONE) {
         throw DatabaseException("Failed to fetch orders by user: " + std::string(sqlite3_errmsg(db_.getHandle())));
@@ -67,20 +77,14 @@ std::vector<Order> OrderRepository::findOrdersByUser(int userId) {
     return orders;
 }
 
-std::vector<Order> OrderRepository::findAllOrders() {
+std::vector<::Order> OrderRepository::findAllOrders() {
     const char* sql = "SELECT id, user_id, total_amount, status, created_at FROM orders;";
     StatementPtr stmt = db_.prepare(sql);
-    std::vector<Order> orders;
+    std::vector<::Order> orders;
 
     int rc = SQLITE_ROW;
     while ((rc = sqlite3_step(stmt.get())) == SQLITE_ROW) {
-        Order order;
-        order.id = sqlite3_column_int(stmt.get(), 0);
-        order.userId = sqlite3_column_int(stmt.get(), 1);
-        order.totalAmount = sqlite3_column_double(stmt.get(), 2);
-        order.status = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 3));
-        order.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 4));
-        orders.push_back(order);
+        orders.push_back(makeOrder(stmt.get()));
     }
     if (rc != SQLITE_DONE) {
         throw DatabaseException("Failed to fetch all orders: " + std::string(sqlite3_errmsg(db_.getHandle())));
@@ -125,22 +129,16 @@ bool OrderRepository::addOrderItem(int orderId, int menuItemId, int quantity, do
     return true;
 }
 
-std::vector<OrderItem> OrderRepository::findItemsByOrder(int orderId) {
+std::vector<::OrderItem> OrderRepository::findItemsByOrder(int orderId) {
     const char* sql = "SELECT id, order_id, menu_item_id, quantity, price FROM order_items WHERE order_id = ?;";
     StatementPtr stmt = db_.prepare(sql);
-    std::vector<OrderItem> items;
+    std::vector<::OrderItem> items;
 
     sqlite3_bind_int(stmt.get(), 1, orderId);
 
     int rc = SQLITE_ROW;
     while ((rc = sqlite3_step(stmt.get())) == SQLITE_ROW) {
-        OrderItem item;
-        item.id = sqlite3_column_int(stmt.get(), 0);
-        item.orderId = sqlite3_column_int(stmt.get(), 1);
-        item.menuItemId = sqlite3_column_int(stmt.get(), 2);
-        item.quantity = sqlite3_column_int(stmt.get(), 3);
-        item.price = sqlite3_column_double(stmt.get(), 4);
-        items.push_back(item);
+        items.push_back(makeOrderItem(stmt.get()));
     }
     if (rc != SQLITE_DONE) {
         throw DatabaseException("Failed to fetch order items: " + std::string(sqlite3_errmsg(db_.getHandle())));

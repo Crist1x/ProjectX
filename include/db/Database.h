@@ -47,6 +47,8 @@ public:
 
     bool isOpen() const noexcept;
 
+    void initializeSchema();
+
     void execute(const std::string& sql);
 
     StatementPtr prepare(const std::string& sql);

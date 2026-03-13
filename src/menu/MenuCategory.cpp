@@ -35,6 +35,9 @@ void Category::add_item(const Item& item) {
     if (!item.isValid()) {
         throw std::invalid_argument("Cannot add invalid item");
     }
+    if (item.get_category_id() != id) {
+        throw std::invalid_argument("Item category_id does not match category id");
+    }
     if (item.get_cafe_id() != cafe_id) {
         throw std::invalid_argument("Item cafe_id does not match category cafe_id");
     }
@@ -124,7 +127,7 @@ Category Category::fromJson(const json& j) {
 }
 
 bool Category::isValid() const {
-    return id > 0 && !name.empty() && cafe_id > 0 && !items.empty();
+    return id > 0 && !name.empty() && cafe_id > 0;
 }
 
 std::string Category::to_telegram_format() const {

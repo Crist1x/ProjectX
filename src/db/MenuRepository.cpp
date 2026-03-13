@@ -2,13 +2,38 @@
 #include <sqlite3.h>
 
 namespace db {
+namespace {
+Category makeCategory(sqlite3_stmt* stmt) {
+    return Category(
+        sqlite3_column_int(stmt, 0),
+        reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)),
+        "",
+        sqlite3_column_int(stmt, 2)
+    );
+}
+
+Item makeItem(sqlite3_stmt* stmt) {
+    return Item(
+        sqlite3_column_int(stmt, 0),
+        reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)),
+        reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)),
+        sqlite3_column_double(stmt, 3),
+        1,
+        sqlite3_column_int(stmt, 4),
+        sqlite3_column_int(stmt, 5),
+        true
+    );
+}
+}
+
 MenuRepository::MenuRepository(Database& database) : db_(database) {}
 
-bool MenuRepository::createCategory(const std::string& name) {
-    const char* sql = "INSERT INTO menu_categories (name) VALUES (?);";
+bool MenuRepository::createCategory(const std::string& name, int cafeId) {
+    const char* sql = "INSERT INTO menu_categories (name, cafe_id) VALUES (?, ?);";
     StatementPtr stmt = db_.prepare(sql);
 
     sqlite3_bind_text(stmt.get(), 1, name.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt.get(), 2, cafeId);
 
     int rc = sqlite3_step(stmt.get());
     if (rc != SQLITE_DONE) {
@@ -18,18 +43,15 @@ bool MenuRepository::createCategory(const std::string& name) {
     return true;
 }
 
-std::optional<MenuCategory> MenuRepository::findCategoryById(int id) {
-    const char* sql = "SELECT id, name FROM menu_categories WHERE id = ?;";
+std::optional<Category> MenuRepository::findCategoryById(int id) {
+    const char* sql = "SELECT id, name, cafe_id FROM menu_categories WHERE id = ?;";
     StatementPtr stmt = db_.prepare(sql);
 
     sqlite3_bind_int(stmt.get(), 1, id);
 
-    MenuCategory category;
     int rc = sqlite3_step(stmt.get());
     if (rc == SQLITE_ROW) {
-        category.id = sqlite3_column_int(stmt.get(), 0);
-        category.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 1));
-        return category;
+        return makeCategory(stmt.get());
     }
     if (rc != SQLITE_DONE) {
         throw DatabaseException("Failed to find category by id: " + std::string(sqlite3_errmsg(db_.getHandle())));
@@ -38,17 +60,14 @@ std::optional<MenuCategory> MenuRepository::findCategoryById(int id) {
     return std::nullopt;
 }
 
-std::vector<MenuCategory> MenuRepository::findAllCategories() {
-    const char* sql = "SELECT id, name FROM menu_categories;";
+std::vector<Category> MenuRepository::findAllCategories() {
+    const char* sql = "SELECT id, name, cafe_id FROM menu_categories;";
     StatementPtr stmt = db_.prepare(sql);
-    std::vector<MenuCategory> categories;
+    std::vector<Category> categories;
 
     int rc = SQLITE_ROW;
     while ((rc = sqlite3_step(stmt.get())) == SQLITE_ROW) {
-        MenuCategory category;
-        category.id = sqlite3_column_int(stmt.get(), 0);
-        category.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 1));
-        categories.push_back(category);
+        categories.push_back(makeCategory(stmt.get()));
     }
     if (rc != SQLITE_DONE) {
         throw DatabaseException("Failed to fetch categories: " + std::string(sqlite3_errmsg(db_.getHandle())));
@@ -91,22 +110,19 @@ bool MenuRepository::createItem(const std::string& name,
     return true;
 }
 
-std::optional<MenuItem> MenuRepository::findItemById(int id) {
-    const char* sql = "SELECT id, name, description, price, category_id, created_at FROM menu_items WHERE id = ?;";
+std::optional<Item> MenuRepository::findItemById(int id) {
+    const char* sql =
+        "SELECT mi.id, mi.name, mi.description, mi.price, mi.category_id, mc.cafe_id, mi.created_at "
+        "FROM menu_items mi "
+        "JOIN menu_categories mc ON mc.id = mi.category_id "
+        "WHERE mi.id = ?;";
     StatementPtr stmt = db_.prepare(sql);
 
     sqlite3_bind_int(stmt.get(), 1, id);
 
-    MenuItem item;
     int rc = sqlite3_step(stmt.get());
     if (rc == SQLITE_ROW) {
-        item.id = sqlite3_column_int(stmt.get(), 0);
-        item.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 1));
-        item.description = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 2));
-        item.price = sqlite3_column_double(stmt.get(), 3);
-        item.categoryId = sqlite3_column_int(stmt.get(), 4);
-        item.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 5));
-        return item;
+        return makeItem(stmt.get());
     }
     if (rc != SQLITE_DONE) {
         throw DatabaseException("Failed to find item by id: " + std::string(sqlite3_errmsg(db_.getHandle())));
@@ -115,21 +131,17 @@ std::optional<MenuItem> MenuRepository::findItemById(int id) {
     return std::nullopt;
 }
 
-std::vector<MenuItem> MenuRepository::findAllItems() {
-    const char* sql = "SELECT id, name, description, price, category_id, created_at FROM menu_items;";
+std::vector<Item> MenuRepository::findAllItems() {
+    const char* sql =
+        "SELECT mi.id, mi.name, mi.description, mi.price, mi.category_id, mc.cafe_id, mi.created_at "
+        "FROM menu_items mi "
+        "JOIN menu_categories mc ON mc.id = mi.category_id;";
     StatementPtr stmt = db_.prepare(sql);
-    std::vector<MenuItem> items;
+    std::vector<Item> items;
 
     int rc = SQLITE_ROW;
     while ((rc = sqlite3_step(stmt.get())) == SQLITE_ROW) {
-        MenuItem item;
-        item.id = sqlite3_column_int(stmt.get(), 0);
-        item.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 1));
-        item.description = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 2));
-        item.price = sqlite3_column_double(stmt.get(), 3);
-        item.categoryId = sqlite3_column_int(stmt.get(), 4);
-        item.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 5));
-        items.push_back(item);
+        items.push_back(makeItem(stmt.get()));
     }
     if (rc != SQLITE_DONE) {
         throw DatabaseException("Failed to fetch menu items: " + std::string(sqlite3_errmsg(db_.getHandle())));
@@ -138,23 +150,20 @@ std::vector<MenuItem> MenuRepository::findAllItems() {
     return items;
 }
 
-std::vector<MenuItem> MenuRepository::findItemsByCategory(int categoryId) {
-    const char* sql = "SELECT id, name, description, price, category_id, created_at FROM menu_items WHERE category_id = ?;";
+std::vector<Item> MenuRepository::findItemsByCategory(int categoryId) {
+    const char* sql =
+        "SELECT mi.id, mi.name, mi.description, mi.price, mi.category_id, mc.cafe_id, mi.created_at "
+        "FROM menu_items mi "
+        "JOIN menu_categories mc ON mc.id = mi.category_id "
+        "WHERE mi.category_id = ?;";
     StatementPtr stmt = db_.prepare(sql);
-    std::vector<MenuItem> items;
+    std::vector<Item> items;
 
     sqlite3_bind_int(stmt.get(), 1, categoryId);
 
     int rc = SQLITE_ROW;
     while ((rc = sqlite3_step(stmt.get())) == SQLITE_ROW) {
-        MenuItem item;
-        item.id = sqlite3_column_int(stmt.get(), 0);
-        item.name = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 1));
-        item.description = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 2));
-        item.price = sqlite3_column_double(stmt.get(), 3);
-        item.categoryId = sqlite3_column_int(stmt.get(), 4);
-        item.createdAt = reinterpret_cast<const char*>(sqlite3_column_text(stmt.get(), 5));
-        items.push_back(item);
+        items.push_back(makeItem(stmt.get()));
     }
     if (rc != SQLITE_DONE) {
         throw DatabaseException("Failed to fetch items by category: " + std::string(sqlite3_errmsg(db_.getHandle())));
