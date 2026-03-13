@@ -2,6 +2,7 @@ enable_testing()
 
 add_executable(run_tests
         test_menu.cpp
+        test_db.cpp
         test_alg.cpp
         ../src/algorithm/alg.cpp
 )

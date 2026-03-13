@@ -17,12 +17,13 @@ private:
     int preparation_time{};  // в минутах
     bool in_stock{};
     std::map<std::string, std::string> attributes;
+    int category_id{};
     int cafe_id{};
 
 public:
     Item() = default;
     Item(int id, const std::string& name, const std::string& description,
-         double price, int prep_time, int cafe_id, bool available = true);
+         double price, int prep_time, int category_id, int cafe_id, bool available = true);
 
     // Геттеры
     int get_id() const;
@@ -31,6 +32,7 @@ public:
     double get_price() const;
     int get_preparation_time() const;
     bool is_available() const;
+    int get_category_id() const;
     int get_cafe_id() const;
     const std::map<std::string, std::string>& get_attributes() const;
 
@@ -40,6 +42,7 @@ public:
     void set_price(double new_price);
     void set_preparation_time(int time);
     void set_available(bool status);
+    void set_category_id(int id);
     void set_cafe_id(int id);
     void add_attribute(const std::string& key, const std::string& value);
 
