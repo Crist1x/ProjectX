@@ -1,48 +1,70 @@
 #include "db/Database.h"
-#include <iostream>
+#include <sstream>
 
 namespace db {
-    Database::Database(const std::string& path) : db_(nullptr) {
-        int result = sqlite3_open(path.c_str(), &db_);
+Database::Database(const std::string& path) {
+    sqlite3* rawPtr = nullptr;
 
-        if (result != SQLITE_OK) {
-            std::cerr << "Cannot open database: " << sqlite3_errmsg(db_) << std::endl;
-            sqlite3_close(db_);
-            db_ = nullptr;
-            throw std::runtime_error("Failed to open database");
+    int result = sqlite3_open(path.c_str(), &rawPtr);
+
+    if (result != SQLITE_OK) {
+        std::ostringstream oss;
+        oss << "Failed to open database '" << path << "': "
+            << sqlite3_errmsg(rawPtr);
+
+        if (rawPtr) {
+            sqlite3_close(rawPtr);
         }
 
-        execute("PRAGMA foreign_keys = ON;");
+        throw DatabaseException(oss.str());
     }
 
-    Database::~Database() {
-        if (db_) {
-            sqlite3_close(db_);
-        }
+    db_.reset(rawPtr);
+
+    execute(PRAGMA_FOREIGN_KEYS);
+}
+
+bool Database::isOpen() const noexcept {
+    return db_ != nullptr;
+}
+
+void Database::execute(const std::string& sql) {
+    if (!db_) {
+        throw DatabaseException("Database not open");
     }
 
-    bool Database::isOpen() const noexcept {
-        return db_ != nullptr;
+    char* errMsg = nullptr;
+    int rc = sqlite3_exec(db_.get(), sql.c_str(), nullptr, nullptr, &errMsg);
+
+    if (rc != SQLITE_OK) {
+        std::string errorMsg = errMsg ? errMsg : "Unknown SQLite error";
+
+        sqlite3_free(errMsg);
+
+        throw DatabaseException("SQL execution failed: " + errorMsg);
+    }
+}
+
+bool Database::tryExecute(const std::string& sql) noexcept {
+    if (!db_) {
+        return false;
     }
 
-    bool Database::execute(const std::string& sql) {
-        if (!db_) {
-            return false;
-        }
+    char* errMsg = nullptr;
+    int result = sqlite3_exec(db_.get(), sql.c_str(), nullptr, nullptr, &errMsg);
 
-        char* errMsg = nullptr;
-        int rc = sqlite3_exec(db_, sql.c_str(), nullptr, nullptr, &errMsg);
-
-        if (rc != SQLITE_OK) {
-            std::cerr << "SQL error: " << errMsg << std::endl;
+    if (result != SQLITE_OK) {
+        if (errMsg) {
             sqlite3_free(errMsg);
-            return false;
         }
-
-        return true;
+        return false;
     }
 
-    sqlite3* Database::getHandle() noexcept {
-        return db_;
-    }
+    return true;
+}
+
+sqlite3* Database::getHandle() noexcept {
+    return db_.get();
+}
+
 }
