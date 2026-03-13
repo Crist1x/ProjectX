@@ -72,7 +72,7 @@ void alg::setWorkingDayStart(double startTimeInMinutes) {
 
 void alg::addOrderToCommonQueue(const Order& order) {
     commonQueue.push_back(order);
-    std::cout << "Order " << order.id << " added to common queue"
+    std::cout << "Order " << order.get_id() << " added to common queue"
               << "Queue size: " << commonQueue.size() << std::endl;
 }
 
@@ -85,7 +85,7 @@ void alg::distributeOrders() {
         Order order = commonQueue.front();
         commonQueue.pop_front();
 
-        order.totalPreparationTime = calculateOrderPreparationTime(order);
+        order.set_total_preparation_time(calculateOrderPreparationTime(order));
 
         int bestBaristaId = findLeastLoadedBarista();
 
@@ -115,15 +115,15 @@ void alg::assignOrderToBarista(Order& order, int baristaId) {
     }
 
     double startTime = std::max(currentTime, barista.getBusyUntilTime());
-    order.estimatedReadyTime = startTime + order.totalPreparationTime;
-    order.assignedBaristaId = baristaId;
+    order.set_estimated_ready_time(startTime + order.get_total_preparation_time());
+    order.set_assigned_barista_id(baristaId);
 
     barista.addOrderToQueue(order);
-    barista.setBusyUntilTime(order.estimatedReadyTime);
+    barista.setBusyUntilTime(order.get_estimated_ready_time());
 
-    std::cout << "Order " << order.id << " assigned to Barista " << baristaId
-              << ". Ready at: " << order.estimatedReadyTime << " min"
-              << " (prep time: " << order.totalPreparationTime << " min)" << std::endl;
+    std::cout << "Order " << order.get_id() << " assigned to Barista " << baristaId
+              << ". Ready at: " << order.get_estimated_ready_time() << " min"
+              << " (prep time: " << order.get_total_preparation_time() << " min)" << std::endl;
 }
 
 double alg::calculateItemPreparationTime(const Item& item) {
@@ -134,13 +134,13 @@ double alg::calculateOrderPreparationTime(const Order& order) {
     double totalTime = 0.0;
 
 
-    for (const auto& item_ptr : order.items) {
+    for (const auto& item_ptr : order.get_items()) {
         totalTime += calculateItemPreparationTime(*item_ptr);
     }
 
 
 
-    if (order.items.size() > 3) {
+    if (order.get_items().size() > 3) {
         totalTime *= 1.2;
     }
 
@@ -197,7 +197,7 @@ double alg::getAverageWaitTime() const {
 
     for (const auto& barista : baristas) {
         for (const auto& order : barista.getOrderQueue()) {
-            double waitTime = order.estimatedReadyTime - currentTime;
+            double waitTime = order.get_estimated_ready_time() - currentTime;
             totalWaitTime += waitTime;
             orderCount++;
         }
