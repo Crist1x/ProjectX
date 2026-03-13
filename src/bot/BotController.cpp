@@ -37,31 +37,34 @@ void BotController::run() {
     }
 }
 
+#include <thread>
+
 void BotController::registerHandlers() {
     std::cout << "[Bot] Registering handlers..." << std::endl;
 
+    // Оборачиваем каждую команду в std::thread
     bot_->getEvents().onCommand("start", [this](const TgBot::Message::Ptr& message) {
-        handleStart(message);
+        std::thread([this, message]() { handleStart(message); }).detach();
     });
 
     bot_->getEvents().onCommand("menu", [this](const TgBot::Message::Ptr& message) {
-        handleMenu(message);
+        std::thread([this, message]() { handleMenu(message); }).detach();
     });
 
     bot_->getEvents().onCommand("help", [this](const TgBot::Message::Ptr& message) {
-        handleHelp(message);
+        std::thread([this, message]() { handleHelp(message); }).detach();
     });
 
     bot_->getEvents().onCommand("cart", [this](const TgBot::Message::Ptr& message) {
-        handleCart(message);
+        std::thread([this, message]() { handleCart(message); }).detach();
     });
 
     bot_->getEvents().onCommand("profile", [this](const TgBot::Message::Ptr& message) {
-        handleProfile(message);
+        std::thread([this, message]() { handleProfile(message); }).detach();
     });
 
     bot_->getEvents().onCallbackQuery([this](const TgBot::CallbackQuery::Ptr& query) {
-        handleCallback(query);
+        std::thread([this, query]() { handleCallback(query); }).detach();
     });
 
     std::cout << "[Bot] Handlers registered!" << std::endl;
@@ -160,15 +163,16 @@ void BotController::handleCallback(const TgBot::CallbackQuery::Ptr& query) {
 
 void BotController::handleCafeSelection(const TgBot::CallbackQuery::Ptr& query) {
     auto parts = split(query->data, ':');
-    if (parts.size() < 2) {
-        bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
-        return;
-    }
+    if (parts.size() < 2) return;
 
     try {
         int cafeId = std::stoi(parts[1]);
         auto chatId = query->message->chat->id;
-        userSelectedCafe_[chatId] = cafeId;
+
+        {
+            std::lock_guard<std::mutex> lock(botMutex_);
+            userSelectedCafe_[chatId] = cafeId;
+        }
 
         bot_->getApi().answerCallbackQuery(query->id, "Загружаю...");
         answerMessage(chatId, buildCafeMenuText(cafeId), buildCategoryKeyboard(cafeId));
@@ -179,18 +183,21 @@ void BotController::handleCafeSelection(const TgBot::CallbackQuery::Ptr& query) 
 
 void BotController::handleCategorySelection(const TgBot::CallbackQuery::Ptr& query) {
     auto parts = split(query->data, ':');
-    if (parts.size() < 2) {
-        bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
-        return;
-    }
+    if (parts.size() < 2) return;
 
     try {
         int categoryId = std::stoi(parts[1]);
         auto chatId = query->message->chat->id;
-        userSelectedCategory_[chatId] = categoryId;
+        int cafeId = -1;
 
-        auto cafeIt = userSelectedCafe_.find(chatId);
-        int cafeId = (cafeIt != userSelectedCafe_.end()) ? cafeIt->second : -1;
+        {
+            std::lock_guard<std::mutex> lock(botMutex_);
+            userSelectedCategory_[chatId] = categoryId;
+            auto cafeIt = userSelectedCafe_.find(chatId);
+            if (cafeIt != userSelectedCafe_.end()) {
+                cafeId = cafeIt->second;
+            }
+        }
 
         bot_->getApi().answerCallbackQuery(query->id, "Загружаю...");
         answerMessage(chatId, buildCategoryItemsText(cafeId, categoryId), buildItemKeyboard(cafeId, categoryId));
@@ -201,30 +208,27 @@ void BotController::handleCategorySelection(const TgBot::CallbackQuery::Ptr& que
 
 void BotController::handleAddToCart(const TgBot::CallbackQuery::Ptr& query) {
     auto parts = split(query->data, ':');
-    if (parts.size() < 2) {
-        bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
-        return;
-    }
+    if (parts.size() < 2) return;
 
     try {
         int menuItemId = std::stoi(parts[1]);
         auto chatId = query->message->chat->id;
 
-        auto& cart = userCarts_[chatId];
-        bool found = false;
-        for (auto& item : cart) {
-            if (item.first == menuItemId) {
-                item.second++;
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            cart.emplace_back(menuItemId, 1);
+        // Сначала достаем товар из БД (это долго, делаем БЕЗ блокировки)
+        auto itemOpt = menuRepository_.findItemById(menuItemId);
+        if (!itemOpt.has_value()) {
+            bot_->getApi().answerCallbackQuery(query->id, "Товар не найден!");
+            return;
         }
 
-        auto itemOpt = menuRepository_.findItemById(menuItemId);
-        std::string itemName = itemOpt.has_value() ? itemOpt->get_name() : "Товар";
+        std::string itemName = itemOpt->get_name();
+        double itemPrice = itemOpt->get_price();
+
+
+        {
+            std::lock_guard<std::mutex> lock(botMutex_);
+            userCarts_[chatId].addItem(menuItemId, itemName, itemPrice, 1);
+        }
 
         bot_->getApi().answerCallbackQuery(query->id, itemName + " добавлен!");
         answerMessage(chatId, buildCartText(chatId), buildCartKeyboard());
@@ -235,29 +239,37 @@ void BotController::handleAddToCart(const TgBot::CallbackQuery::Ptr& query) {
 
 void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
     auto chatId = query->message->chat->id;
-    auto& cart = userCarts_[chatId];
+    std::vector<std::pair<int, int>> itemsToOrder;
 
-    if (cart.empty()) {
-        bot_->getApi().answerCallbackQuery(query->id, "Корзина пуста");
-        return;
+    {
+        std::lock_guard<std::mutex> lock(botMutex_);
+        auto& cart = userCarts_[chatId];
+
+        if (cart.isEmpty()) {
+            bot_->getApi().answerCallbackQuery(query->id, "Корзина пуста");
+            return;
+        }
+        // Получаем вектор для базы данных с помощью твоего метода
+        itemsToOrder = cart.getItemPairs();
     }
 
     auto telegramId = query->from->id;
     auto user = userRepository_.findByTelegramId(telegramId);
-    if (!user.has_value()) {
-        bot_->getApi().answerCallbackQuery(query->id, "Пользователь не найден");
-        return;
-    }
+    if (!user.has_value()) return;
 
     try {
-        bool success = orderRepository_.createOrderWithItems(user->id, cart);
+        // Оформляем заказ в БД
+        bool success = orderRepository_.createOrderWithItems(user->id, itemsToOrder);
 
         if (success) {
-            cart.clear();
+            { // запираем, чтобы очистить корзину
+                std::lock_guard<std::mutex> lock(botMutex_);
+                userCarts_[chatId].clear();
+            }
             bot_->getApi().answerCallbackQuery(query->id, "Заказ оформлен!");
-            answerMessage(chatId, "Заказ оформлен!\nОжидайте подтверждения.");
+            answerMessage(chatId, "🎉 Заказ оформлен!\nОжидайте подтверждения.");
         } else {
-            bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
+            bot_->getApi().answerCallbackQuery(query->id, "Ошибка оформления");
         }
     } catch (const std::exception& e) {
         bot_->getApi().answerCallbackQuery(query->id, "Ошибка: " + std::string(e.what()));
@@ -266,7 +278,11 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
 
 void BotController::handleClearCart(const TgBot::CallbackQuery::Ptr& query) {
     auto chatId = query->message->chat->id;
-    userCarts_[chatId].clear();
+
+    {
+        std::lock_guard<std::mutex> lock(botMutex_);
+        userCarts_[chatId].clear();
+    }
 
     bot_->getApi().answerCallbackQuery(query->id, "Корзина очищена");
     answerMessage(chatId, buildCartText(chatId), buildCartKeyboard());
@@ -420,31 +436,28 @@ std::string BotController::buildCategoryItemsText(int cafeId, int categoryId) co
 }
 
 std::string BotController::buildCartText(std::int64_t chatId) const {
-    auto it = userCarts_.find(chatId);
+    Cart cartCopy;
 
-    if (it == userCarts_.end() || it->second.empty()) {
-        return "Корзина пуста\n\nДобавь товары из меню!";
+    {
+        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(botMutex_));
+        auto it = userCarts_.find(chatId);
+        if (it == userCarts_.end() || it->second.isEmpty()) {
+            return "🛒 Корзина пуста\n\nДобавь товары из меню!";
+        }
+        cartCopy = it->second;
     }
 
     std::ostringstream text;
-    text << "Корзина:\n\n";
+    text << "🛒 Корзина:\n\n";
 
-    double total = 0.0;
-    int itemCount = 0;
-
-    for (const auto& [menuItemId, qty] : it->second) {
-        auto itemOpt = menuRepository_.findItemById(menuItemId);
-        if (itemOpt.has_value()) {
-            double itemTotal = itemOpt->get_price() * qty;
-            total += itemTotal;
-            itemCount += qty;
-            text << "- " << itemOpt->get_name() << " x" << qty << " = " << static_cast<int>(itemTotal) << " руб\n";
-        }
+    for (const auto& item : cartCopy.getItems()) {
+        text << "- " << item.name << " x" << item.quantity
+             << " = " << static_cast<int>(item.price * item.quantity) << " руб\n";
     }
 
     text << "\n----------------\n";
-    text << "Итого: " << static_cast<int>(total) << " руб\n";
-    text << "Товаров: " << itemCount;
+    text << "💰 Итого: " << static_cast<int>(cartCopy.getTotalAmount()) << " руб\n";
+    text << "📦 Товаров: " << cartCopy.getItemCount();
 
     return text.str();
 }

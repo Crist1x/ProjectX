@@ -8,6 +8,8 @@
 #include "menu/MenuCategory.h"
 #include "menu/MenuItem.h"
 #include "menu/TelegramFormat.h"
+#include <mutex>
+#include "bot/Cart.h"
 #include <memory>
 #include <string>
 #include <map>
@@ -75,11 +77,14 @@ private:
     db::OrderRepository& orderRepository_;
     std::shared_ptr<TgBot::Bot> bot_;
 
-    std::map<std::int64_t, std::vector<std::pair<int, int>>> userCarts_;
-    std::map<std::int64_t, int> userSelectedCafe_;
-    std::map<std::int64_t, int> userSelectedCategory_;
+    std::vector<CafeView> cachedCafes_;
 
-    mutable std::vector<CafeView> cachedCafes_;
+    std::mutex botMutex_;
+
+    std::unordered_map<int64_t, int> userSelectedCafe_;
+    std::unordered_map<int64_t, int> userSelectedCategory_;
+
+    std::unordered_map<int64_t, Cart> userCarts_;
 };
 
 #endif
