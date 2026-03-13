@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <iostream>
+#include <iomanip>
 
 BotController::BotController(const std::string& token,
                              db::Database& database,
@@ -15,9 +16,12 @@ BotController::BotController(const std::string& token,
       menuRepository_(menuRepository),
       orderRepository_(orderRepository),
       bot_(std::make_shared<TgBot::Bot>(token)) {
-    std::cout << "[BotController] Constructor called, token length: " << token.length() << std::endl;
+    std::cout << "[BotController] Initializing..." << std::endl;
+
+    cachedCafes_ = fetchCafes();
+
     registerHandlers();
-    std::cout << "[BotController] Handlers registered" << std::endl;
+    std::cout << "[BotController] Ready!" << std::endl;
 }
 
 void BotController::run() {
@@ -37,85 +41,95 @@ void BotController::registerHandlers() {
     std::cout << "[Bot] Registering handlers..." << std::endl;
 
     bot_->getEvents().onCommand("start", [this](const TgBot::Message::Ptr& message) {
-        std::cout << "[Bot] >>> /start received from chat " << message->chat->id << std::endl;
         handleStart(message);
     });
 
     bot_->getEvents().onCommand("menu", [this](const TgBot::Message::Ptr& message) {
-        std::cout << "[Bot] >>> /menu received from chat " << message->chat->id << std::endl;
         handleMenu(message);
     });
 
     bot_->getEvents().onCommand("help", [this](const TgBot::Message::Ptr& message) {
-        std::cout << "[Bot] >>> /help received from chat " << message->chat->id << std::endl;
         handleHelp(message);
     });
 
     bot_->getEvents().onCommand("cart", [this](const TgBot::Message::Ptr& message) {
-        std::cout << "[Bot] >>> /cart received from chat " << message->chat->id << std::endl;
         handleCart(message);
     });
 
+    bot_->getEvents().onCommand("profile", [this](const TgBot::Message::Ptr& message) {
+        handleProfile(message);
+    });
+
     bot_->getEvents().onCallbackQuery([this](const TgBot::CallbackQuery::Ptr& query) {
-        std::cout << "[Bot] >>> Callback received: " << query->data << std::endl;
         handleCallback(query);
     });
 
-    std::cout << "[Bot] All handlers registered successfully" << std::endl;
+    std::cout << "[Bot] Handlers registered!" << std::endl;
 }
 
 void BotController::handleStart(const TgBot::Message::Ptr& message) {
-    std::cout << "[Bot] handleStart called for chat " << message->chat->id << std::endl;
-    ensureUserExists(message);
+    auto user = ensureUserExists(message);
 
-    std::string text = "☕ *Привет! Я бот университетской кофейни.*\n\n"
-                       "Помогу выбрать кофейню и сделать заказ.\n\n"
-                       "*Команды:*\n"
-                       "/menu - посмотреть меню\n"
-                       "/cart - ваша корзина\n"
-                       "/help - помощь";
+    std::string text = "Привет, " + user->username + "!\n\n";
+    text += "Добро пожаловать в CoffeeHSE!\n\n";
+    text += "Выберите кофейню ниже:";
 
     answerMessage(message->chat->id, text, buildCafeKeyboard());
-    std::cout << "[Bot] handleStart completed" << std::endl;
 }
 
 void BotController::handleMenu(const TgBot::Message::Ptr& message) {
-    std::cout << "[Bot] handleMenu called for chat " << message->chat->id << std::endl;
     ensureUserExists(message);
-    answerMessage(message->chat->id, buildCafeSelectionText(), buildCafeKeyboard());
-    std::cout << "[Bot] handleMenu completed" << std::endl;
+    answerMessage(message->chat->id, "Выберите кофейню:", buildCafeKeyboard());
 }
 
 void BotController::handleHelp(const TgBot::Message::Ptr& message) {
-    std::cout << "[Bot] handleHelp called for chat " << message->chat->id << std::endl;
+    ensureUserExists(message);
 
-    std::string text = "📖 *Помощь*\n\n"
-                       "*Команды:*\n"
-                       "/start - начать работу\n"
-                       "/menu - выбрать кофейню и посмотреть меню\n"
-                       "/cart - посмотреть корзину\n"
-                       "/help - показать эту справку\n\n"
-                       "*Как сделать заказ:*\n"
-                       "1. Нажмите /menu\n"
-                       "2. Выберите кофейню\n"
-                       "3. Выберите категорию\n"
-                       "4. Нажмите на товар для добавления в корзину\n"
-                       "5. Откройте /cart и нажмите *Оформить заказ*";
+    std::string text = "Помощь\n\n";
+    text += "Команды:\n";
+    text += "/start - главное меню\n";
+    text += "/menu - выбрать кофейню\n";
+    text += "/cart - корзина\n";
+    text += "/profile - твой профиль\n";
+    text += "/help - справка\n\n";
+    text += "Как сделать заказ:\n";
+    text += "1. Нажми /menu\n";
+    text += "2. Выбери кофейню\n";
+    text += "3. Выбери категорию\n";
+    text += "4. Нажми на товар\n";
+    text += "5. Открой /cart и оформи";
 
     answerMessage(message->chat->id, text);
-    std::cout << "[Bot] handleHelp completed" << std::endl;
 }
 
 void BotController::handleCart(const TgBot::Message::Ptr& message) {
-    std::cout << "[Bot] handleCart called for chat " << message->chat->id << std::endl;
     ensureUserExists(message);
     answerMessage(message->chat->id, buildCartText(message->chat->id), buildCartKeyboard());
-    std::cout << "[Bot] handleCart completed" << std::endl;
+}
+
+void BotController::handleProfile(const TgBot::Message::Ptr& message) {
+    auto user = ensureUserExists(message);
+    auto orders = orderRepository_.findOrdersByUser(user->id);
+
+    std::string text = "Твой профиль\n\n";
+    text += "Имя: " + user->username + "\n";
+    text += "Telegram ID: " + std::to_string(user->telegramId) + "\n";
+    text += "Всего заказов: " + std::to_string(orders.size()) + "\n\n";
+
+    if (!orders.empty()) {
+        text += "Последние заказы:\n";
+        int count = 0;
+        for (auto it = orders.rbegin(); it != orders.rend() && count < 5; ++it, ++count) {
+            text += "- Заказ #" + std::to_string(it->get_id()) + ": " + it->get_status() + "\n";
+        }
+    } else {
+        text += "У тебя пока нет заказов\n";
+    }
+
+    answerMessage(message->chat->id, text);
 }
 
 void BotController::handleCallback(const TgBot::CallbackQuery::Ptr& query) {
-    std::cout << "[Bot] handleCallback called with  " << query->data << std::endl;
-
     const std::string& data = query->data;
 
     if (data.rfind("cafe:", 0) == 0) {
@@ -147,7 +161,7 @@ void BotController::handleCallback(const TgBot::CallbackQuery::Ptr& query) {
 void BotController::handleCafeSelection(const TgBot::CallbackQuery::Ptr& query) {
     auto parts = split(query->data, ':');
     if (parts.size() < 2) {
-        bot_->getApi().answerCallbackQuery(query->id, "Ошибка формата");
+        bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
         return;
     }
 
@@ -156,18 +170,17 @@ void BotController::handleCafeSelection(const TgBot::CallbackQuery::Ptr& query) 
         auto chatId = query->message->chat->id;
         userSelectedCafe_[chatId] = cafeId;
 
-        bot_->getApi().answerCallbackQuery(query->id, "Загружаю меню");
+        bot_->getApi().answerCallbackQuery(query->id, "Загружаю...");
         answerMessage(chatId, buildCafeMenuText(cafeId), buildCategoryKeyboard(cafeId));
-    } catch (const std::exception& e) {
-        std::cerr << "[Bot] Error in handleCafeSelection: " << e.what() << std::endl;
-        bot_->getApi().answerCallbackQuery(query->id, "Ошибка: " + std::string(e.what()));
+    } catch (...) {
+        bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
     }
 }
 
 void BotController::handleCategorySelection(const TgBot::CallbackQuery::Ptr& query) {
     auto parts = split(query->data, ':');
     if (parts.size() < 2) {
-        bot_->getApi().answerCallbackQuery(query->id, "Ошибка формата");
+        bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
         return;
     }
 
@@ -179,18 +192,17 @@ void BotController::handleCategorySelection(const TgBot::CallbackQuery::Ptr& que
         auto cafeIt = userSelectedCafe_.find(chatId);
         int cafeId = (cafeIt != userSelectedCafe_.end()) ? cafeIt->second : -1;
 
-        bot_->getApi().answerCallbackQuery(query->id, "Загружаю товары");
+        bot_->getApi().answerCallbackQuery(query->id, "Загружаю...");
         answerMessage(chatId, buildCategoryItemsText(cafeId, categoryId), buildItemKeyboard(cafeId, categoryId));
-    } catch (const std::exception& e) {
-        std::cerr << "[Bot] Error in handleCategorySelection: " << e.what() << std::endl;
-        bot_->getApi().answerCallbackQuery(query->id, "Ошибка: " + std::string(e.what()));
+    } catch (...) {
+        bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
     }
 }
 
 void BotController::handleAddToCart(const TgBot::CallbackQuery::Ptr& query) {
     auto parts = split(query->data, ':');
     if (parts.size() < 2) {
-        bot_->getApi().answerCallbackQuery(query->id, "Ошибка формата");
+        bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
         return;
     }
 
@@ -211,11 +223,13 @@ void BotController::handleAddToCart(const TgBot::CallbackQuery::Ptr& query) {
             cart.emplace_back(menuItemId, 1);
         }
 
-        bot_->getApi().answerCallbackQuery(query->id, "✓ Добавлено в корзину");
+        auto itemOpt = menuRepository_.findItemById(menuItemId);
+        std::string itemName = itemOpt.has_value() ? itemOpt->get_name() : "Товар";
+
+        bot_->getApi().answerCallbackQuery(query->id, itemName + " добавлен!");
         answerMessage(chatId, buildCartText(chatId), buildCartKeyboard());
-    } catch (const std::exception& e) {
-        std::cerr << "[Bot] Error in handleAddToCart: " << e.what() << std::endl;
-        bot_->getApi().answerCallbackQuery(query->id, "Ошибка при добавлении");
+    } catch (...) {
+        bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
     }
 }
 
@@ -241,16 +255,11 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
         if (success) {
             cart.clear();
             bot_->getApi().answerCallbackQuery(query->id, "Заказ оформлен!");
-
-            std::string text = "✅ *Заказ оформлен!*\n\n"
-                               "Ожидайте подтверждения от бариста.\n"
-                               "Вы можете продолжить делать заказы через /menu";
-            answerMessage(chatId, text);
+            answerMessage(chatId, "Заказ оформлен!\nОжидайте подтверждения.");
         } else {
-            bot_->getApi().answerCallbackQuery(query->id, "Ошибка при оформлении");
+            bot_->getApi().answerCallbackQuery(query->id, "Ошибка");
         }
     } catch (const std::exception& e) {
-        std::cerr << "[Bot] Error in handleCheckout: " << e.what() << std::endl;
         bot_->getApi().answerCallbackQuery(query->id, "Ошибка: " + std::string(e.what()));
     }
 }
@@ -267,24 +276,25 @@ void BotController::handleBackToCategories(const TgBot::CallbackQuery::Ptr& quer
     auto chatId = query->message->chat->id;
     auto cafeIt = userSelectedCafe_.find(chatId);
 
-    if (cafeIt == userSelectedCafe_.end()) {
-        answerMessage(chatId, buildCafeSelectionText(), buildCafeKeyboard());
-        return;
+    if (cafeIt != userSelectedCafe_.end()) {
+        int cafeId = cafeIt->second;
+        answerMessage(chatId, buildCafeMenuText(cafeId), buildCategoryKeyboard(cafeId));
+    } else {
+        answerMessage(chatId, "Выберите кофейню:", buildCafeKeyboard());
     }
-
-    int cafeId = cafeIt->second;
-    answerMessage(chatId, buildCafeMenuText(cafeId), buildCategoryKeyboard(cafeId));
 }
 
 void BotController::handleBackToCafes(const TgBot::CallbackQuery::Ptr& query) {
     auto chatId = query->message->chat->id;
-    answerMessage(chatId, buildCafeSelectionText(), buildCafeKeyboard());
+    answerMessage(chatId, "Выберите кофейню:", buildCafeKeyboard());
 }
 
-void BotController::ensureUserExists(const TgBot::Message::Ptr& message) {
+std::optional<db::User> BotController::ensureUserExists(const TgBot::Message::Ptr& message) {
     const long long telegramId = message->from->id;
-    if (userRepository_.findByTelegramId(telegramId).has_value()) {
-        return;
+
+    auto existingUser = userRepository_.findByTelegramId(telegramId);
+    if (existingUser.has_value()) {
+        return existingUser;
     }
 
     std::string username = message->from->username;
@@ -296,7 +306,7 @@ void BotController::ensureUserExists(const TgBot::Message::Ptr& message) {
     }
 
     userRepository_.create(telegramId, username);
-    std::cout << "[Bot] New user registered: " << username << " (TG ID: " << telegramId << ")" << std::endl;
+    return userRepository_.findByTelegramId(telegramId);
 }
 
 std::vector<BotController::CafeView> BotController::fetchCafes() const {
@@ -333,20 +343,9 @@ std::vector<Item> BotController::itemsByCategory(int categoryId) const {
     return menuRepository_.findItemsByCategory(categoryId);
 }
 
-std::string BotController::buildCafeSelectionText() const {
-    std::ostringstream text;
-    text << "☕ *Выберите кофейню:*\n\n";
-
-    for (const auto& cafe : fetchCafes()) {
-        text << "• " << cafe.name << " (" << cafe.location << ")\n";
-    }
-
-    return text.str();
-}
-
 std::string BotController::buildCafeMenuText(int cafeId) const {
     std::optional<CafeView> selectedCafe;
-    for (const auto& cafe : fetchCafes()) {
+    for (const auto& cafe : cachedCafes_) {
         if (cafe.id == cafeId) {
             selectedCafe = cafe;
             break;
@@ -360,27 +359,26 @@ std::string BotController::buildCafeMenuText(int cafeId) const {
     const auto categories = categoriesByCafe(cafeId);
 
     std::ostringstream text;
-    text << "📍 *" << selectedCafe->name << "*\n";
-    text << "📌 " << selectedCafe->location << "\n\n";
-    text << "*Категории:*\n";
+    text << selectedCafe->name << "\n";
+    text << selectedCafe->location << "\n\n";
+    text << "Категории:\n";
 
     if (categories.empty()) {
-        text << "\nПока нет доступных категорий.";
+        text << "Пока нет категорий.";
         return text.str();
     }
 
     for (const auto& category : categories) {
-        text << "• " << category.get_name() << "\n";
+        text << "- " << category.get_name() << "\n";
     }
 
-    text << "\nВыберите категорию ниже:";
-
+    text << "\nВыберите категорию:";
     return text.str();
 }
 
 std::string BotController::buildCategoryItemsText(int cafeId, int categoryId) const {
     std::optional<CafeView> selectedCafe;
-    for (const auto& cafe : fetchCafes()) {
+    for (const auto& cafe : cachedCafes_) {
         if (cafe.id == cafeId) {
             selectedCafe = cafe;
             break;
@@ -402,24 +400,22 @@ std::string BotController::buildCategoryItemsText(int cafeId, int categoryId) co
     const auto items = itemsByCategory(categoryId);
 
     std::ostringstream text;
-    text << "📍 *" << selectedCafe->name << "*\n";
-    text << "📋 *" << selectedCategory->get_name() << "*\n\n";
+    text << selectedCafe->name << "\n";
+    text << selectedCategory->get_name() << "\n\n";
 
     if (items.empty()) {
-        text << "Пока пусто в этой категории.\n\n";
-        text << "Выберите другую категорию или вернитесь назад.";
+        text << "Пока пусто.";
         return text.str();
     }
 
     for (const auto& item : items) {
-        text << "• *" << item.get_name() << "* — " << item.get_price() << "₽\n";
+        text << "- " << item.get_name() << ": " << static_cast<int>(item.get_price()) << " руб\n";
         if (!item.get_description().empty()) {
-            text << "  _" << item.get_description() << "_\n";
+            text << "  " << item.get_description() << "\n";
         }
     }
 
-    text << "\nНажмите на товар, чтобы добавить в корзину.";
-
+    text << "\nНажми на товар для добавления.";
     return text.str();
 }
 
@@ -427,11 +423,11 @@ std::string BotController::buildCartText(std::int64_t chatId) const {
     auto it = userCarts_.find(chatId);
 
     if (it == userCarts_.end() || it->second.empty()) {
-        return "🛒 *Ваша корзина пуста*\n\nДобавьте товары из меню!";
+        return "Корзина пуста\n\nДобавь товары из меню!";
     }
 
     std::ostringstream text;
-    text << "🛒 *Ваша корзина*\n\n";
+    text << "Корзина:\n\n";
 
     double total = 0.0;
     int itemCount = 0;
@@ -442,14 +438,12 @@ std::string BotController::buildCartText(std::int64_t chatId) const {
             double itemTotal = itemOpt->get_price() * qty;
             total += itemTotal;
             itemCount += qty;
-            text << "• " << itemOpt->get_name() << " × " << qty
-                 << " = " << itemTotal << "₽\n";
-        } else {
-            text << "• Товар #" << menuItemId << " × " << qty << "\n";
+            text << "- " << itemOpt->get_name() << " x" << qty << " = " << static_cast<int>(itemTotal) << " руб\n";
         }
     }
 
-    text << "\n*Итого: " << total << "₽*\n";
+    text << "\n----------------\n";
+    text << "Итого: " << static_cast<int>(total) << " руб\n";
     text << "Товаров: " << itemCount;
 
     return text.str();
@@ -458,7 +452,7 @@ std::string BotController::buildCartText(std::int64_t chatId) const {
 TgBot::InlineKeyboardMarkup::Ptr BotController::buildCafeKeyboard() const {
     auto keyboard = std::make_shared<TgBot::InlineKeyboardMarkup>();
 
-    for (const auto& cafe : fetchCafes()) {
+    for (const auto& cafe : cachedCafes_) {
         auto button = std::make_shared<TgBot::InlineKeyboardButton>();
         button->text = cafe.name;
         button->callbackData = "cafe:" + std::to_string(cafe.id);
@@ -481,7 +475,7 @@ TgBot::InlineKeyboardMarkup::Ptr BotController::buildCategoryKeyboard(int cafeId
     }
 
     auto backButton = std::make_shared<TgBot::InlineKeyboardButton>();
-    backButton->text = "🔙 Назад к кофейням";
+    backButton->text = "<< Назад к кофейням";
     backButton->callbackData = "back:cafes:0";
     keyboard->inlineKeyboard.push_back({backButton});
 
@@ -495,13 +489,13 @@ TgBot::InlineKeyboardMarkup::Ptr BotController::buildItemKeyboard(int cafeId, in
 
     for (const auto& item : items) {
         auto button = std::make_shared<TgBot::InlineKeyboardButton>();
-        button->text = "🛒 " + item.get_name() + " — " + std::to_string(static_cast<int>(item.get_price())) + "₽";
+        button->text = item.get_name() + " - " + std::to_string(static_cast<int>(item.get_price())) + " руб";
         button->callbackData = "add:" + std::to_string(item.get_id());
         keyboard->inlineKeyboard.push_back({button});
     }
 
     auto backButton = std::make_shared<TgBot::InlineKeyboardButton>();
-    backButton->text = "🔙 Назад к категориям";
+    backButton->text = "<< Назад к категориям";
     backButton->callbackData = "back:cat:0";
     keyboard->inlineKeyboard.push_back({backButton});
 
@@ -512,15 +506,15 @@ TgBot::InlineKeyboardMarkup::Ptr BotController::buildCartKeyboard() const {
     auto keyboard = std::make_shared<TgBot::InlineKeyboardMarkup>();
 
     auto buttonCheckout = std::make_shared<TgBot::InlineKeyboardButton>();
-    buttonCheckout->text = "✅ Оформить заказ";
+    buttonCheckout->text = "Оформить заказ";
     buttonCheckout->callbackData = "checkout";
 
     auto buttonClear = std::make_shared<TgBot::InlineKeyboardButton>();
-    buttonClear->text = "🗑 Очистить";
+    buttonClear->text = "Очистить";
     buttonClear->callbackData = "cart_clear";
 
     auto buttonMenu = std::make_shared<TgBot::InlineKeyboardButton>();
-    buttonMenu->text = "📋 В меню";
+    buttonMenu->text = "В меню";
     buttonMenu->callbackData = "back:cafes:0";
 
     keyboard->inlineKeyboard.push_back({buttonCheckout, buttonClear});
@@ -532,11 +526,9 @@ TgBot::InlineKeyboardMarkup::Ptr BotController::buildCartKeyboard() const {
 void BotController::answerMessage(std::int64_t chatId, const std::string& text,
                                   const TgBot::GenericReply::Ptr& markup) const {
     try {
-        std::cout << "[Bot] Sending message to chat " << chatId << std::endl;
         bot_->getApi().sendMessage(chatId, text, nullptr, nullptr, markup);
-        std::cout << "[Bot] Message sent successfully" << std::endl;
     } catch (const std::exception& e) {
-        std::cerr << "[Bot] Error sending message: " << e.what() << std::endl;
+        std::cerr << "[Bot] Error: " << e.what() << std::endl;
     }
 }
 
