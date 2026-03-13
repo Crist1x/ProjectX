@@ -45,6 +45,21 @@ void Database::execute(const std::string& sql) {
     }
 }
 
+StatementPtr Database::prepare(const std::string& sql) {
+    if (!db_) {
+        throw DatabaseException("Database not open");
+    }
+
+    sqlite3_stmt* rawStmt = nullptr;
+    int rc = sqlite3_prepare_v2(db_.get(), sql.c_str(), -1, &rawStmt, nullptr);
+
+    if (rc != SQLITE_OK) {
+        throw DatabaseException("Failed to prepare SQL statement: " + std::string(sqlite3_errmsg(db_.get())));
+    }
+
+    return StatementPtr(rawStmt);
+}
+
 bool Database::tryExecute(const std::string& sql) noexcept {
     if (!db_) {
         return false;

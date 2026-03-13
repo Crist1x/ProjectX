@@ -21,6 +21,16 @@ struct SqliteDeleter {
     }
 };
 
+struct StatementDeleter {
+    void operator()(sqlite3_stmt* ptr) const noexcept {
+        if (ptr) {
+            sqlite3_finalize(ptr);
+        }
+    }
+};
+
+using StatementPtr = std::unique_ptr<sqlite3_stmt, StatementDeleter>;
+
 class Database {
 public:
     static constexpr const char* PRAGMA_FOREIGN_KEYS = "PRAGMA foreign_keys = ON;";
@@ -38,6 +48,8 @@ public:
     bool isOpen() const noexcept;
 
     void execute(const std::string& sql);
+
+    StatementPtr prepare(const std::string& sql);
 
     sqlite3* getHandle() noexcept;
 
