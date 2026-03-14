@@ -71,6 +71,8 @@ private:
 
     void answerMessage(std::int64_t chatId, const std::string& text,
                        const TgBot::GenericReply::Ptr& markup = nullptr) const;
+    void editMessage(std::int64_t chatId, std::int32_t messageId, const std::string& text,
+                     const TgBot::GenericReply::Ptr& markup = nullptr) const;
     std::vector<std::string> split(const std::string& str, char delimiter) const;
 
     std::string token_;
