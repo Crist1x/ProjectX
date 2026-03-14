@@ -82,6 +82,7 @@ public:
     void reset();
     void printStatistics() const;
     void updateTime();
+    double getCurrentTime() const { return currentTime; }
 };
 
 #endif

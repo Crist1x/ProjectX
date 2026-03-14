@@ -51,6 +51,7 @@ private:
     void handleClearCart(const TgBot::CallbackQuery::Ptr& query);
     void handleBackToCategories(const TgBot::CallbackQuery::Ptr& query);
     void handleBackToCafes(const TgBot::CallbackQuery::Ptr& query);
+    void handleScheduledOrder(const TgBot::CallbackQuery::Ptr& query);
 
     std::optional<db::User> ensureUserExists(const TgBot::Message::Ptr& message);
 
@@ -66,6 +67,7 @@ private:
     TgBot::InlineKeyboardMarkup::Ptr buildCategoryKeyboard(int cafeId) const;
     TgBot::InlineKeyboardMarkup::Ptr buildItemKeyboard(int cafeId, int categoryId) const;
     TgBot::InlineKeyboardMarkup::Ptr buildCartKeyboard() const;
+    TgBot::InlineKeyboardMarkup::Ptr buildTimeSelectionKeyboard() const;
 
     void answerMessage(std::int64_t chatId, const std::string& text,
                        const TgBot::GenericReply::Ptr& markup = nullptr) const;
