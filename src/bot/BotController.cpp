@@ -60,7 +60,7 @@ void BotController::run() {
 void BotController::registerHandlers() {
     std::cout << "[Bot] Registering handlers..." << std::endl;
 
-    // УБРАЛИ std::thread! Теперь всё работает стабильно и последовательно
+    // УБРАЛИ std::thread
     bot_->getEvents().onCommand("start", [this](const TgBot::Message::Ptr& message) {
         handleStart(message);
     });
@@ -268,7 +268,7 @@ void BotController::handleAddToCart(const TgBot::CallbackQuery::Ptr& query) {
         int menuItemId = std::stoi(parts[1]);
         auto chatId = query->message->chat->id;
 
-        // Сначала достаем товар из БД (это долго, делаем БЕЗ блокировки)
+        // товар из БД
         auto itemOpt = menuRepository_.findItemById(menuItemId);
         if (!itemOpt.has_value()) {
             bot_->getApi().answerCallbackQuery(query->id, "Товар не найден!");
@@ -378,14 +378,14 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
                 text << "⏳ Ваш заказ добавлен в очередь. Ожидайте готовности!";
             }
 
-            // Заменяем корзину на чек
+            // Заменяем корзину
             editMessage(chatId, query->message->messageId, text.str());
 
             if (waitTimeMinutes > 0) {
 
                 int waitSeconds = static_cast<int>(waitTimeMinutes * 60);
 
-                auto botPtr = bot_; // Безопасный указатель для потока
+                auto botPtr = bot_; 
 
                 std::thread([botPtr, chatId, waitSeconds, assignedBarista]() {
                     std::this_thread::sleep_for(std::chrono::seconds(waitSeconds));
@@ -675,7 +675,7 @@ TgBot::InlineKeyboardMarkup::Ptr BotController::buildCartKeyboard() const {
     buttonMenu->callbackData = "back:cafes:0";
 
     keyboard->inlineKeyboard.push_back({buttonCheckout});
-    keyboard->inlineKeyboard.push_back({buttonTime}); // Добавили кнопку времени
+    keyboard->inlineKeyboard.push_back({buttonTime}); // кнопка времени
     keyboard->inlineKeyboard.push_back({buttonClear, buttonMenu});
 
     return keyboard;
@@ -741,7 +741,7 @@ void BotController::handleScheduledOrder(const TgBot::CallbackQuery::Ptr& query)
     auto chatId = query->message->chat->id;
     auto telegramId = query->from->id;
 
-    // Достаем через сколько минут нужен кофе
+    //  через сколько минут нужен кофе
     auto parts = split(query->data, ':');
     if (parts.size() < 2) return;
     int targetDelayMinutes = std::stoi(parts[1]);
@@ -759,7 +759,7 @@ void BotController::handleScheduledOrder(const TgBot::CallbackQuery::Ptr& query)
         itemsToOrder = cart.getItemPairs();
         cart.clear();
 
-        // Достаем ID кофейни, чтобы поток запомнил, куда отправлять заказ
+        // ID кофейни
         auto it = userSelectedCafe_.find(chatId);
         if (it != userSelectedCafe_.end()) {
             currentCafeId = it->second;
@@ -773,7 +773,7 @@ void BotController::handleScheduledOrder(const TgBot::CallbackQuery::Ptr& query)
 
     bot_->getApi().answerCallbackQuery(query->id, "Планирую заказ...");
 
-    // Допустим на готовку и очередь мы закладываем 10 минут.
+    // на готовку и очередь 10 мин
     int prepBuffer = 10;
     int sleepTimeMinutes = targetDelayMinutes - prepBuffer;
 
@@ -796,7 +796,7 @@ void BotController::handleScheduledOrder(const TgBot::CallbackQuery::Ptr& query)
             Order algOrder;
 
             {
-                std::lock_guard<std::mutex> dbLock(botMutex_); // Защищаем SQLite
+                std::lock_guard<std::mutex> dbLock(botMutex_); 
 
                 auto user = userRepository_.findByTelegramId(telegramId);
                 if (!user.has_value()) return;
