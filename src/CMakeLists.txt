@@ -42,16 +42,18 @@ target_include_directories(algorithm_lib PUBLIC
 
 target_link_libraries(algorithm_lib PRIVATE menu_lib)
 
-add_library(bot_lib STATIC
+add_library(bot_lib
         bot/BotController.cpp
-        ../include/bot/BotController.h
         bot/Cart.cpp
 )
+
 target_include_directories(bot_lib PUBLIC
         ${CMAKE_SOURCE_DIR}/include
         ${tgbot_SOURCE_DIR}/include
 )
 target_link_libraries(bot_lib PUBLIC
-        db_lib
         TgBot
+        menu_lib
+        db_lib
+        algorithm_lib
 )

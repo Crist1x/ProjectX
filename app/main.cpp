@@ -28,7 +28,7 @@ std::string readTokenFromEnvFile(const std::filesystem::path& path) {
             continue;
         }
 
-        // Ищем строку PROJECTX_BOT_TOKEN=...
+        // Ищем строку PROJECTX_BOT_TOKEN=
         const std::string prefix = "PROJECTX_BOT_TOKEN=";
         if (line.size() > prefix.size() && line.substr(0, prefix.size()) == prefix) {
             // Возвращаем всё после знака =

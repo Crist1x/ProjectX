@@ -8,6 +8,7 @@
 #include "menu/MenuCategory.h"
 #include "menu/MenuItem.h"
 #include "menu/TelegramFormat.h"
+#include "algorithm/alg.h"
 #include <mutex>
 #include "bot/Cart.h"
 #include <memory>
@@ -85,6 +86,9 @@ private:
     std::unordered_map<int64_t, int> userSelectedCategory_;
 
     std::unordered_map<int64_t, Cart> userCarts_;
+
+    alg orderAlgorithm_;
+    std::mutex algMutex_;
 };
 
 #endif
