@@ -1,34 +1,99 @@
-#include "menu/MenuItem.h"
-#include "menu/MenuCategory.h"
-#include "menu/Menu.h"
+#include "bot/BotController.h"
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
-#include <memory>
+#include <stdexcept>
+#include <string>
+
+// Простая функция для чтения токена из файла .env
+std::string readTokenFromEnvFile(const std::filesystem::path& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        throw std::runtime_error(
+            "File .env not found in project root.\n"
+            "Create .env with: PROJECTX_BOT_TOKEN=your_token_here"
+        );
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        // Пропускаем пустые строки
+        if (line.empty()) {
+            continue;
+        }
+
+        // Пропускаем комментарии (строки начинающиеся с #)
+        if (line[0] == '#') {
+            continue;
+        }
+
+        // Ищем строку PROJECTX_BOT_TOKEN=
+        const std::string prefix = "PROJECTX_BOT_TOKEN=";
+        if (line.size() > prefix.size() && line.substr(0, prefix.size()) == prefix) {
+            // Возвращаем всё после знака =
+            return line.substr(prefix.size());
+        }
+    }
+
+    throw std::runtime_error(
+        "PROJECTX_BOT_TOKEN not found in .env file.\n"
+        "Add line: PROJECTX_BOT_TOKEN=your_token_here"
+    );
+}
 
 int main() {
-    Menu cafe_menu(1, "Булочная");
+    try {
+        std::cout << "   CoffeeHSE Bot - University Coffee" << std::endl;
+        std::cout << std::endl;
 
-    Category drinks(1, "Напитки", "Горячие и холодные напитки", 1);
+        // Читаем токен из файла .env (в корне проекта)
+        const std::filesystem::path projectRoot = PROJECTX_ROOT;
+        const std::filesystem::path envPath = projectRoot / ".env";
 
-    drinks.add_item(Item(1, "Кофе Латте", "Молочный кофе", 150.0, 5, 1, true));
-    drinks.add_item(Item(2, "Чай Зелёный", "Китайский чай", 100.0, 3, 1, true));
+        std::cout << "[1/5] Loading token from .env..." << std::endl;
 
-    // Категория "Выпечка"
-    Category bakery(2, "Выпечка", "Свежая выпечка", 1);
-    bakery.add_item(Item(3, "Круассан", "С маслом", 200.0, 10, 1, true));
-    bakery.add_item(Item(4, "Пончик", "С шоколадом", 150.0, 5, 1, true));
+        std::string token = readTokenFromEnvFile(envPath);
 
-    cafe_menu.add_category(drinks);
-    cafe_menu.add_category(bakery);
+        // Отладка токена
+        std::cout << "       Bot token loaded" << std::endl;
+        std::cout << "      Token length: " << token.length() << std::endl;
+        std::cout << std::endl;
 
-    std::cout << cafe_menu.to_telegram_format() << std::endl;
+        // Database path
+        const std::filesystem::path databaseDirectory = projectRoot / "databases";
+        const std::filesystem::path databasePath = databaseDirectory / "projectx.db";
 
-    auto item_opt = cafe_menu.find_item(3);
+        std::cout << "[2/5] Initializing database..." << std::endl;
+        std::filesystem::create_directories(databaseDirectory);
 
-    if (item_opt.has_value()) {
-        std::cout << "Нашли: " << item_opt.value()->get_name()
-                  << " за " << item_opt.value()->get_price() << "₽\n";
-    } else {
-        std::cout << "Упс! Такого блюда в меню нет.\n";
+        db::Database database(databasePath.string());
+        database.initializeSchema();
+        std::cout << "       Database initialized" << std::endl;
+
+        std::cout << "[3/5] Creating repositories..." << std::endl;
+        db::UserRepository userRepository(database);
+        db::MenuRepository menuRepository(database);
+        db::OrderRepository orderRepository(database);
+        std::cout << "       Repositories created" << std::endl;
+
+        std::cout << "[4/5] Starting bot controller..." << std::endl;
+        BotController botController(token, database, userRepository, menuRepository, orderRepository);
+        std::cout << "       Bot controller initialized" << std::endl;
+
+        std::cout << "[5/5] Bot is running!" << std::endl;
+        std::cout << std::endl;
+        std::cout << "   Bot is online" << std::endl;
+        std::cout << std::endl;
+        std::cout << "Commands: /start /menu /cart /help" << std::endl;
+        std::cout << std::endl;
+
+        botController.run();
+
+    } catch (const std::exception& e) {
+        std::cerr << std::endl;
+        std::cerr << "   ERROR: " << e.what() << std::endl;
+        return 1;
     }
 
     return 0;

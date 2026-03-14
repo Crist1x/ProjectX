@@ -1,6 +1,5 @@
 add_executable(bot_app
         main.cpp
-        ../include/algorithm/alg.h
 )
 
 target_include_directories(bot_app PRIVATE ${CMAKE_SOURCE_DIR}/include)
@@ -14,9 +13,8 @@ target_compile_definitions(bot_app PRIVATE
 )
 
 target_link_libraries(bot_app PRIVATE
-        menu_lib
         db_lib
-        logger_lib
+        bot_lib
 )
 
 set_target_properties(bot_app PROPERTIES

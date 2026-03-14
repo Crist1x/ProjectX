@@ -3,6 +3,7 @@
 #include <iostream>
 
 
+
 Barista::Barista()
     : id(0), isWorking(false), busyUntilTime(0), totalOrdersCompleted(0) {}
 
@@ -65,9 +66,19 @@ void alg::setWorkingDayStart(double startTimeInMinutes) {
     workingDayStartTime = startTimeInMinutes;
     currentTime = startTimeInMinutes;
 
+    realStartTime = std::chrono::steady_clock::now();
+
     for (auto& barista : baristas) {
         barista.setBusyUntilTime(startTimeInMinutes);
     }
+}
+
+void alg::updateTime() {
+    auto now = std::chrono::steady_clock::now();
+
+    std::chrono::duration<double, std::ratio<60>> elapsedMinutes = now - realStartTime;
+
+    currentTime = workingDayStartTime + elapsedMinutes.count();
 }
 
 void alg::addOrderToCommonQueue(const Order& order) {
@@ -77,6 +88,8 @@ void alg::addOrderToCommonQueue(const Order& order) {
 }
 
 void alg::distributeOrders() {
+    updateTime();
+
     std::cout << "\n Distributing orders" << std::endl;
     std::cout << "Orders in queue: " << commonQueue.size() << std::endl;
     std::cout << "Working baristas: " << getWorkingBaristasCount() << std::endl;

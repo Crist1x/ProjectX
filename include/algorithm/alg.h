@@ -10,8 +10,6 @@
 #include "menu/Order.h"
 
 
-
-
 class Barista {
 private:
     int id;
@@ -50,6 +48,7 @@ private:
     std::deque<Order> commonQueue;
     double currentTime;
     double workingDayStartTime;
+    std::chrono::time_point<std::chrono::steady_clock> realStartTime;
 
     double calculateItemPreparationTime(const Item& item);
     int findLeastLoadedBarista();
@@ -82,6 +81,8 @@ public:
     // Утилиты
     void reset();
     void printStatistics() const;
+    void updateTime();
+    double getCurrentTime() const { return currentTime; }
 };
 
 #endif
