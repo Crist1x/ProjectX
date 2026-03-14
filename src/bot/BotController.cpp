@@ -20,19 +20,24 @@ BotController::BotController(const std::string& token,
 
     std::cout << "[BotController] Initializing..." << std::endl;
 
-    {
-        std::lock_guard<std::mutex> lock(algMutex_);
-        orderAlgorithm_.initializeBaristas(2);
-        orderAlgorithm_.setBaristaStatus(1, true);
-        orderAlgorithm_.setBaristaStatus(2, true);
-        orderAlgorithm_.setWorkingDayStart(0.0);
-    }
-
     try {
         cachedCafes_ = fetchCafes();
     } catch (const std::exception& e) {
         std::cerr << "[CRITICAL ERROR] Ошибка при загрузке кофеен: " << e.what() << std::endl;
-        std::cerr << "Подсказка: проверьте, существует ли таблица 'cafes' в вашей базе данных!" << std::endl;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(algMutex_);
+
+        for (const auto& cafe : cachedCafes_) {
+            alg localAlg;
+            localAlg.initializeBaristas(2);
+            localAlg.setBaristaStatus(0, true);
+            localAlg.setBaristaStatus(1, true);
+            localAlg.setWorkingDayStart(0.0);
+
+            cafeAlgorithms_[cafe.id] = localAlg;
+        }
     }
 
     registerHandlers();
@@ -281,7 +286,9 @@ void BotController::handleAddToCart(const TgBot::CallbackQuery::Ptr& query) {
 void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
     auto chatId = query->message->chat->id;
     std::vector<std::pair<int, int>> itemsToOrder;
+    int currentCafeId = -1;
 
+    // 1. БЕЗОПАСНО ДОСТАЕМ КОРЗИНУ И ID КОФЕЙНИ
     {
         std::lock_guard<std::mutex> lock(botMutex_);
         auto& cart = userCarts_[chatId];
@@ -291,8 +298,20 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
             return;
         }
         itemsToOrder = cart.getItemPairs();
+
+        // Достаем ID кофейни, в которой сейчас находится юзер
+        auto it = userSelectedCafe_.find(chatId);
+        if (it != userSelectedCafe_.end()) {
+            currentCafeId = it->second;
+        }
     }
 
+    if (currentCafeId == -1) {
+        bot_->getApi().answerCallbackQuery(query->id, "Ошибка: Кофейня не выбрана");
+        return;
+    }
+
+    // Достаем пользователя
     auto telegramId = query->from->id;
     auto user = userRepository_.findByTelegramId(telegramId);
     if (!user.has_value()) {
@@ -301,13 +320,16 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
     }
 
     try {
+        // 2. ОФОРМЛЯЕМ ЗАКАЗ В БАЗЕ ДАННЫХ
         bool success = orderRepository_.createOrderWithItems(user->id, itemsToOrder);
 
         if (success) {
+            // 3. СОЗДАЕМ ЗАКАЗ ДЛЯ АЛГОРИТМА БАРИСТ
             Order algOrder;
-            algOrder.set_id(user->id + std::rand() % 1000);
+            algOrder.set_id(user->id + std::rand() % 1000); // Генерируем ID
             algOrder.set_user_id(user->id);
 
+            // Наполняем заказ товарами (учитывая их количество)
             for (const auto& [itemId, qty] : itemsToOrder) {
                 auto itemOpt = menuRepository_.findItemById(itemId);
                 if (itemOpt.has_value()) {
@@ -317,34 +339,38 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
                 }
             }
 
-            // баристы
+            // 4. ЗАПУСКАЕМ АЛГОРИТМ ИМЕННО ДЛЯ ВЫБРАННОЙ КОФЕЙНИ
             double waitTimeMinutes = 0.0;
             int assignedBarista = -1;
 
             {
                 std::lock_guard<std::mutex> algLock(algMutex_);
 
-                orderAlgorithm_.addOrderToCommonQueue(algOrder);
-                orderAlgorithm_.distributeOrders();
+                // Достаем бригаду барист по ID кофейни (по ссылке!)
+                auto& activeAlg = cafeAlgorithms_[currentCafeId];
 
-                // Ищем наш заказ, используя геттеры
-                for (const auto& barista : orderAlgorithm_.getBaristas()) {
+                activeAlg.addOrderToCommonQueue(algOrder);
+                activeAlg.distributeOrders();
+
+                // Ищем наш заказ в баристах именно этой кофейни
+                for (const auto& barista : activeAlg.getBaristas()) {
                     for (const auto& bOrder : barista.getOrderQueue()) {
                         if (bOrder.get_id() == algOrder.get_id()) {
-                            waitTimeMinutes = bOrder.get_estimated_ready_time() - orderAlgorithm_.getCurrentTime();
-                            assignedBarista = barista.getId(); // Метод getId() у Barista
+                            // ПРАВИЛЬНАЯ ФОРМУЛА: Время готовности минус Текущее время на часах
+                            waitTimeMinutes = bOrder.get_estimated_ready_time() - activeAlg.getCurrentTime();
+                            assignedBarista = barista.getId();
                         }
                     }
                 }
             }
 
-            // очистка корзины
+            // 5. ОЧИЩАЕМ КОРЗИНУ ПРИ УСПЕХЕ
             {
                 std::lock_guard<std::mutex> lock(botMutex_);
                 userCarts_[chatId].clear();
             }
 
-            // 6. ответ
+            // 6. ОТПРАВЛЯЕМ КРАСИВЫЙ ОТВЕТ
             bot_->getApi().answerCallbackQuery(query->id, "Заказ принят в работу!");
 
             std::ostringstream text;
@@ -359,33 +385,14 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
                 text << "⏳ Ваш заказ добавлен в очередь. Ожидайте готовности!";
             }
 
-            answerMessage(chatId, text.str()); // Твой текущий код ответа
-
-            if (waitTimeMinutes > 0) {
-                // минуты в секунды
-                int waitSeconds = static_cast<int>(waitTimeMinutes * 60);
-
-                // фоновый таймер
-                std::thread([this, chatId, waitSeconds, assignedBarista]() {
-                    std::this_thread::sleep_for(std::chrono::seconds(waitSeconds));
-                    try {
-                        std::string readyText = "🔔 *Дзинь!*\n\nВаш заказ готов!\nБариста №"
-                                              + std::to_string(assignedBarista)
-                                              + " уже ждет вас на выдаче.";
-
-                        bot_->getApi().sendMessage(chatId, readyText, nullptr, nullptr, nullptr, "Markdown");
-                    } catch (const std::exception& e) {
-                        std::cerr << "[Bot] Ошибка отправки уведомления: " << e.what() << std::endl;
-                    }
-
-                }).detach();
-            }
+            answerMessage(chatId, text.str());
 
         } else {
             bot_->getApi().answerCallbackQuery(query->id, "Ошибка оформления в БД");
         }
     } catch (const std::exception& e) {
         bot_->getApi().answerCallbackQuery(query->id, "Ошибка: " + std::string(e.what()));
+        std::cerr << "[Bot] Checkout Error: " << e.what() << std::endl;
     }
 }
 
@@ -711,6 +718,7 @@ void BotController::handleScheduledOrder(const TgBot::CallbackQuery::Ptr& query)
     int targetDelayMinutes = std::stoi(parts[1]);
 
     std::vector<std::pair<int, int>> itemsToOrder;
+    int currentCafeId = -1;
 
     {
         std::lock_guard<std::mutex> lock(botMutex_);
@@ -720,42 +728,45 @@ void BotController::handleScheduledOrder(const TgBot::CallbackQuery::Ptr& query)
             return;
         }
         itemsToOrder = cart.getItemPairs();
-        cart.clear(); // Сразу очищаем, чтобы юзер мог собирать новый заказ
+        cart.clear();
+
+        // Достаем ID кофейни, чтобы поток запомнил, куда отправлять заказ
+        auto it = userSelectedCafe_.find(chatId);
+        if (it != userSelectedCafe_.end()) {
+            currentCafeId = it->second;
+        }
+    }
+
+    if (currentCafeId == -1) {
+        bot_->getApi().answerCallbackQuery(query->id, "Ошибка: Кофейня не выбрана");
+        return;
     }
 
     bot_->getApi().answerCallbackQuery(query->id, "Планирую заказ...");
 
     // Допустим на готовку и очередь мы закладываем 10 минут.
-    // Значит, мы должны отправить заказ баристе за 10 минут до прихода клиента.
     int prepBuffer = 10;
     int sleepTimeMinutes = targetDelayMinutes - prepBuffer;
 
     if (sleepTimeMinutes <= 0) {
-        // Если клиент выбрал 15 минут, а нам готовить 10 — запускаем почти сразу
         sleepTimeMinutes = 1;
     }
 
-    // Сообщаем пользователю
     std::ostringstream text;
     text << "✅ *Заказ запланирован!*\n\n";
     text << "Вы выбрали забрать заказ через " << targetDelayMinutes << " мин.\n";
     text << "Мы начнем готовить его через " << sleepTimeMinutes << " мин, чтобы он был горячим к вашему приходу!";
     answerMessage(chatId, text.str());
 
-    // таймер в потоке
-    std::thread([this, telegramId, chatId, itemsToOrder, sleepTimeMinutes]() {
+    std::thread([this, telegramId, chatId, itemsToOrder, sleepTimeMinutes, currentCafeId]() {
         std::this_thread::sleep_for(std::chrono::minutes(sleepTimeMinutes));
-
-        // закидываем заказ в алгоритм
         try {
             auto user = userRepository_.findByTelegramId(telegramId);
             if (!user.has_value()) return;
 
-            // Сохраняем в БД
             bool success = orderRepository_.createOrderWithItems(user->id, itemsToOrder);
             if (!success) return;
 
-            // Создаем заказ для алгоритма
             Order algOrder;
             algOrder.set_id(user->id + std::rand() % 1000);
             algOrder.set_user_id(user->id);
@@ -772,11 +783,15 @@ void BotController::handleScheduledOrder(const TgBot::CallbackQuery::Ptr& query)
             int assignedBarista = -1;
             {
                 std::lock_guard<std::mutex> algLock(algMutex_);
-                orderAlgorithm_.addOrderToCommonQueue(algOrder);
-                orderAlgorithm_.distributeOrders();
 
-                // Ищем баристу
-                for (const auto& barista : orderAlgorithm_.getBaristas()) {
+                // ИСПОЛЬЗУЕМ АЛГОРИТМ КОНКРЕТНОЙ КОФЕЙНИ!
+                auto& activeAlg = cafeAlgorithms_[currentCafeId];
+
+                activeAlg.addOrderToCommonQueue(algOrder);
+                activeAlg.distributeOrders();
+
+                // Ищем баристу именно в этой кофейне
+                for (const auto& barista : activeAlg.getBaristas()) {
                     for (const auto& bOrder : barista.getOrderQueue()) {
                         if (bOrder.get_id() == algOrder.get_id()) {
                             assignedBarista = barista.getId();
@@ -785,7 +800,6 @@ void BotController::handleScheduledOrder(const TgBot::CallbackQuery::Ptr& query)
                 }
             }
 
-            // Уведомляем клиента, что бариста начал работу
             std::string alertText = "👨‍🍳 *Пора готовить!*\nБариста №" + std::to_string(assignedBarista) +
                                     " только что взялся за ваш заказ, который вы планировали.";
             bot_->getApi().sendMessage(chatId, alertText, nullptr, nullptr, nullptr, "Markdown");

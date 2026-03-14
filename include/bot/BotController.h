@@ -89,7 +89,7 @@ private:
 
     std::unordered_map<int64_t, Cart> userCarts_;
 
-    alg orderAlgorithm_;
+    std::unordered_map<int, alg> cafeAlgorithms_;
     std::mutex algMutex_;
 };
 
