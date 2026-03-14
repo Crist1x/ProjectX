@@ -6,10 +6,10 @@
 Order createOrder(int id, int items_count = 1) {
     Order order;
     order.set_id(id);
-    order.set_user_id(1);
-    order.set_status("new");
+
     for (int i = 0; i < items_count; i++) {
-        auto item = std::make_shared<Item>(i + 1, "Test Item", "Desc", 100.0, 5, 1, 1);
+        auto item = std::make_shared<Item>(i, "Test Item", "Desc", 100.0, 5, 1, 1, true);
+
         order.add_item(item);
     }
     return order;
@@ -177,3 +177,4 @@ int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
+
