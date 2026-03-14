@@ -191,7 +191,7 @@ void BotController::handleCallback(const TgBot::CallbackQuery::Ptr& query) {
     else if (data == "time_menu") {
         auto chatId = query->message->chat->id;
         bot_->getApi().answerCallbackQuery(query->id);
-        editMessage(chatId, query->message->messageId, buildCartText(chatId), buildCartKeyboard());
+        editMessage(chatId, query->message->messageId, "🕒 Когда вы хотите забрать заказ?", buildTimeSelectionKeyboard());
     }
     else if (data.rfind("schedule:", 0) == 0) {
         handleScheduledOrder(query);
@@ -305,7 +305,6 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
         }
         itemsToOrder = cart.getItemPairs();
 
-        // Достаем ID кофейни, в которой сейчас находится юзер
         auto it = userSelectedCafe_.find(chatId);
         if (it != userSelectedCafe_.end()) {
             currentCafeId = it->second;
@@ -317,7 +316,6 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
         return;
     }
 
-    // Достаем пользователя
     auto telegramId = query->from->id;
     auto user = userRepository_.findByTelegramId(telegramId);
     if (!user.has_value()) {
@@ -330,10 +328,9 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
 
         if (success) {
             Order algOrder;
-            algOrder.set_id(user->id + std::rand() % 1000); // Генерируем ID
+            algOrder.set_id(user->id + std::rand() % 1000);
             algOrder.set_user_id(user->id);
 
-            // Наполняем заказ товарами (учитывая их количество)
             for (const auto& [itemId, qty] : itemsToOrder) {
                 auto itemOpt = menuRepository_.findItemById(itemId);
                 if (itemOpt.has_value()) {
@@ -348,18 +345,14 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
 
             {
                 std::lock_guard<std::mutex> algLock(algMutex_);
-
-                // Достаем бригаду барист по ID кофейни (по ссылке!)
                 auto& activeAlg = cafeAlgorithms_[currentCafeId];
 
                 activeAlg.addOrderToCommonQueue(algOrder);
                 activeAlg.distributeOrders();
 
-                // Ищем наш заказ в баристах именно этой кофейни
                 for (const auto& barista : activeAlg.getBaristas()) {
                     for (const auto& bOrder : barista.getOrderQueue()) {
                         if (bOrder.get_id() == algOrder.get_id()) {
-                            // ПРАВИЛЬНАЯ ФОРМУЛА: Время готовности минус Текущее время на часах
                             waitTimeMinutes = bOrder.get_estimated_ready_time() - activeAlg.getCurrentTime();
                             assignedBarista = barista.getId();
                         }
@@ -379,14 +372,34 @@ void BotController::handleCheckout(const TgBot::CallbackQuery::Ptr& query) {
 
             if (assignedBarista != -1) {
                 text << "👨‍🍳 Его готовит бариста №" << assignedBarista << ".\n";
-                // Округляем время ожидания, чтобы не было "1.453 минут"
                 int minutes = std::max(1, static_cast<int>(waitTimeMinutes));
                 text << "⏳ Примерное время ожидания: <b>" << minutes << " мин.</b>";
             } else {
                 text << "⏳ Ваш заказ добавлен в очередь. Ожидайте готовности!";
             }
 
+            // Заменяем корзину на чек
             editMessage(chatId, query->message->messageId, text.str());
+
+            if (waitTimeMinutes > 0) {
+
+                int waitSeconds = static_cast<int>(waitTimeMinutes * 60);
+
+                auto botPtr = bot_; // Безопасный указатель для потока
+
+                std::thread([botPtr, chatId, waitSeconds, assignedBarista]() {
+                    std::this_thread::sleep_for(std::chrono::seconds(waitSeconds));
+                    try {
+                        std::string readyText = "🔔 <b>Дзинь!</b>\n\nВаш заказ готов!\nБариста №"
+                                              + std::to_string(assignedBarista)
+                                              + " уже ждет вас на выдаче.";
+
+                        botPtr->getApi().sendMessage(chatId, readyText, 0, 0, nullptr, "HTML");
+                    } catch (const std::exception& e) {
+                        std::cerr << "[Thread Error]: " << e.what() << std::endl;
+                    }
+                }).detach();
+            }
 
         } else {
             bot_->getApi().answerCallbackQuery(query->id, "Ошибка оформления в БД");
